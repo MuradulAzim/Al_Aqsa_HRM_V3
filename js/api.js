@@ -7,7 +7,7 @@
 // ============================================
 // BACKEND CONFIGURATION
 // ============================================
-const BASE_URL = 'https://script.google.com/macros/s/AKfycbyQZU2PO7v-i0H0SB5S_Dk7abx649AEAWxCbKyBKFetYxcDjKnuy69NEMOrS9-oeRszwQ/exec';
+const BASE_URL = 'https://script.google.com/macros/s/AKfycbyx3gRjNdhTDnO-uoxw4YG7ZnAIG5q2mnzd1yMY8bmKqRFLOY8rpSDaTo2eqf2dS-Bo7A/exec';
 
 // ============================================
 // ERROR HANDLING UTILITIES
