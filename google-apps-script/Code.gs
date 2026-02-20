@@ -1,15 +1,12 @@
 /**
- * Al-Aqsa HRM Backend - Google Apps Script
- * Main entry point - doPost and doGet handlers with action routing
- * 
- * VERSION: 1.1.0
- * 
- * DEPLOYMENT INSTRUCTIONS:
- * 1. Create a new Google Apps Script project at script.google.com
- * 2. Copy all .gs files from this folder into the project
- * 3. Run setupDatabase() once from the Editor to create the spreadsheet
- * 4. Deploy as Web App with "Anyone" access
- * 5. Update BASE_URL in frontend js/api.js with the deployed URL
+ * NOTE:
+ * Any Spreadsheet ID or Drive Folder ID defined in this file
+ * is legacy and NOT used at runtime.
+ *
+ * v3 configuration is automatically managed via PropertiesService
+ * and initialized by setupDatabase() (one-time).
+ *
+ * Do NOT update IDs here.
  */
 
 // ============================================

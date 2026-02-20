@@ -1,15 +1,18 @@
 /**
- * Al-Aqsa HRM Backend - Utilities
- * Helper functions for database operations
- */
-
-// ============================================
-// DATABASE SETUP
-// ============================================
-
-/**
- * Run this once to set up the database spreadsheet and Drive folder
- * SAFE: Checks if resources already exist before creating new ones
+ * WARNING — ONE-TIME INITIALIZATION ONLY
+ *
+ * setupDatabase() is a ONE-TIME initialization function.
+ *
+ * It creates the v3 database spreadsheet and Drive folder and stores
+ * their IDs in PropertiesService (APP_CONFIG).
+ *
+ * After successful execution:
+ * - Configuration is loaded dynamically at runtime
+ * - Hardcoded IDs in Code.gs are NOT used
+ *
+ * DO NOT rerun this function in production.
+ * DO NOT hardcode Spreadsheet or Drive IDs in Code.gs.
+ * DO NOT call this function from frontend or scheduled triggers.
  */
 function setupDatabase() {
   // Check if config already exists in PropertiesService
