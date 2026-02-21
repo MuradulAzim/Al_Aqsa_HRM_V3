@@ -42,7 +42,7 @@ function handleAddOrUpdateClient(payload, sessionUser) {
   
   try {
     // Validate required fields
-    const requiredFields = ['id', 'companyName'];
+    const requiredFields = ['id', 'name'];
     const validationError = validateRequired(payload, requiredFields);
     if (validationError) {
       return {
@@ -53,15 +53,21 @@ function handleAddOrUpdateClient(payload, sessionUser) {
       };
     }
     
-    // Prepare client data
+    // Prepare client data (v3 schema — aligned with frontend)
     const clientData = {
       id: payload.id,
-      companyName: payload.companyName || '',
+      name: payload.name || '',
       contactPerson: payload.contactPerson || '',
       phone: payload.phone || '',
-      email: payload.email || '',
+      contactRate: parseNumber(payload.contactRate, 0),
       address: payload.address || '',
-      status: payload.status || 'Active'
+      serviceStartDate: payload.serviceStartDate || '',
+      lastBillSubmitted: payload.lastBillSubmitted || '',
+      billStatus: payload.billStatus || '',
+      dueAmount: parseNumber(payload.dueAmount, 0),
+      assignedEmployeeSalary: parseNumber(payload.assignedEmployeeSalary, 0),
+      status: payload.status || 'Active',
+      createdAt: payload.createdAt || ''
     };
     
     // Add or update

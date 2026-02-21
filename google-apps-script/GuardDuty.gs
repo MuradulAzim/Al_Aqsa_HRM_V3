@@ -53,17 +53,18 @@ function handleAddGuardDuty(payload, sessionUser) {
       };
     }
     
-    // Prepare record data
+    // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
       date: payload.date,
       employeeId: payload.employeeId || '',
       employeeName: payload.employeeName,
       clientId: payload.clientId || '',
-      clientName: payload.clientName || '',
       shift: payload.shift || 'Day',
       status: payload.status || 'Present',
-      remarks: payload.remarks || ''
+      checkIn: payload.checkIn || '',
+      checkOut: payload.checkOut || '',
+      notes: payload.notes || ''
     };
     
     // Add record

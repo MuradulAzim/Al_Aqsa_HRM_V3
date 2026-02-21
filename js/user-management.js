@@ -143,7 +143,7 @@ function openCreateUserModal() {
  * Open modal to edit existing user
  */
 function openEditUserModal(userId) {
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => String(u.id) === String(userId));
     if (!user) return;
 
     editingUserId = userId;
@@ -237,7 +237,7 @@ async function handleUserSubmit(event) {
  * Reset user password
  */
 async function resetUserPassword(userId) {
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => String(u.id) === String(userId));
     if (!user) return;
 
     const newPassword = prompt(`Enter new password for ${user.username}:`);
@@ -264,7 +264,7 @@ async function resetUserPassword(userId) {
  * Toggle user active/disabled status
  */
 async function toggleUserStatus(userId) {
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => String(u.id) === String(userId));
     if (!user) return;
 
     const currentUser = getCurrentUser();
@@ -302,7 +302,7 @@ async function toggleUserStatus(userId) {
  * Confirm and delete user
  */
 async function confirmDeleteUser(userId) {
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => String(u.id) === String(userId));
     if (!user) return;
 
     let confirmed = false;

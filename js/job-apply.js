@@ -29,7 +29,7 @@ async function initApplicationForm() {
         const response = await request("getJobPosts", {});
         
         if (response.success) {
-            currentJob = response.data.find(j => j.id === jobId);
+            currentJob = response.data.find(j => String(j.id) === String(jobId));
             
             if (!currentJob) {
                 showError("Job not found. The position may have been removed.");

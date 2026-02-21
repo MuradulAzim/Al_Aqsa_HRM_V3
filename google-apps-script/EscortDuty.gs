@@ -55,15 +55,20 @@ function handleAddEscortDuty(payload, sessionUser) {
       };
     }
     
-    // Prepare record data
+    // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
-      startDate: payload.startDate,
-      endDate: payload.endDate,
       employeeId: payload.employeeId || '',
       employeeName: payload.employeeName,
       clientId: payload.clientId || '',
       clientName: payload.clientName || '',
+      vesselName: payload.vesselName || '',
+      lighterName: payload.lighterName || '',
+      startDate: payload.startDate,
+      startShift: payload.startShift || '',
+      endDate: payload.endDate,
+      endShift: payload.endShift || '',
+      releasePoint: payload.releasePoint || '',
       totalDays: parseNumber(payload.totalDays, 1),
       conveyance: parseNumber(payload.conveyance, 0),
       status: payload.status || 'Active',

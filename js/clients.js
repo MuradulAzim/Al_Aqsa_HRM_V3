@@ -293,7 +293,7 @@ function resetForm() {
  * @param {string} id - Client ID (string)
  */
 function viewClient(id) {
-    const client = clients.find(c => c.id === id);
+    const client = clients.find(c => String(c.id) === String(id));
     if (!client) {
         console.error("Client not found:", id);
         return;
@@ -326,7 +326,7 @@ function viewClient(id) {
  * @param {string} id - Client ID (string)
  */
 function editClient(id) {
-    const client = clients.find(c => c.id === id);
+    const client = clients.find(c => String(c.id) === String(id));
     if (!client) {
         console.error("Client not found:", id);
         return;
@@ -363,7 +363,7 @@ function editClient(id) {
  * @param {string} id - Client ID (string)
  */
 async function deleteClient(id) {
-    const client = clients.find(c => c.id === id);
+    const client = clients.find(c => String(c.id) === String(id));
     const clientName = client ? client.name : 'this client';
     
     let confirmed = false;

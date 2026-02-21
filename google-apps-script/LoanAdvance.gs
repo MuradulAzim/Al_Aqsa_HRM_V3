@@ -48,7 +48,7 @@ function handleAddLoanAdvance(payload, sessionUser) {
       };
     }
     
-    // Prepare record data
+    // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
       employeeId: payload.employeeId || '',
@@ -56,8 +56,12 @@ function handleAddLoanAdvance(payload, sessionUser) {
       type: payload.type,
       amount: parseNumber(payload.amount, 0),
       issueDate: payload.issueDate || getTodayISO(),
+      paymentMethod: payload.paymentMethod || '',
+      remarks: payload.remarks || '',
+      repaymentType: payload.repaymentType || '',
+      monthlyDeduct: parseNumber(payload.monthlyDeduct, 0),
       status: payload.status || 'Active',
-      notes: payload.notes || ''
+      createdAt: payload.createdAt || getTodayISO()
     };
     
     // Add record

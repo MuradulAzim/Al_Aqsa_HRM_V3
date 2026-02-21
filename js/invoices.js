@@ -227,7 +227,7 @@ function escapeHtml(str) {
  * @param {string} id - Invoice ID
  */
 function viewInvoice(id) {
-    const invoice = invoices.find(i => i.id === id);
+    const invoice = invoices.find(i => String(i.id) === String(id));
     if (!invoice) return;
     
     selectedInvoice = invoice;
@@ -470,7 +470,7 @@ async function generateInvoice(event) {
  * @param {string} id - Invoice ID
  */
 async function finalizeInvoice(id) {
-    const invoice = invoices.find(i => i.id === id);
+    const invoice = invoices.find(i => String(i.id) === String(id));
     const invoiceName = invoice ? invoice.invoiceNumber : 'this invoice';
     
     let confirmed = false;
@@ -510,7 +510,7 @@ async function finalizeInvoice(id) {
  * @param {string} id - Invoice ID
  */
 async function markAsPaid(id) {
-    const invoice = invoices.find(i => i.id === id);
+    const invoice = invoices.find(i => String(i.id) === String(id));
     const invoiceName = invoice ? invoice.invoiceNumber : 'this invoice';
     
     let confirmed = false;
@@ -550,7 +550,7 @@ async function markAsPaid(id) {
  * @param {string} id - Invoice ID
  */
 async function deleteInvoice(id) {
-    const invoice = invoices.find(i => i.id === id);
+    const invoice = invoices.find(i => String(i.id) === String(id));
     if (!invoice || invoice.status !== 'Draft') {
         if (typeof showToast === 'function') {
             showToast('Only draft invoices can be deleted', 'error');

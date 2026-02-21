@@ -53,17 +53,19 @@ function handleAddOrUpdateEmployee(payload, sessionUser) {
       };
     }
     
-    // Prepare employee data
+    // Prepare employee data (v3 schema — aligned with frontend)
     const employeeData = {
       id: payload.id,
       name: payload.name || '',
-      nid: payload.nid || '',
       phone: payload.phone || '',
+      nid: payload.nid || '',
+      role: payload.role || '',
+      salary: parseNumber(payload.salary, 0),
+      deployedAt: payload.deployedAt || '',
+      joinDate: payload.joinDate || '',
+      guardianName: payload.guardianName || '',
+      guardianPhone: payload.guardianPhone || '',
       address: payload.address || '',
-      bank: payload.bank || '',
-      joiningDate: payload.joiningDate || '',
-      contractType: payload.contractType || 'Daily',
-      dailyRate: parseNumber(payload.dailyRate, 500),
       status: payload.status || 'Active'
     };
     

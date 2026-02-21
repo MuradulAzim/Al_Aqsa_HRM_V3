@@ -332,7 +332,7 @@ async function handleSubmit(event) {
  * @param {string} id - Record ID
  */
 async function deleteRecord(id) {
-    const record = laborRecords.find(r => r.id === id);
+    const record = laborRecords.find(r => String(r.id) === String(id));
     const recordName = record ? `${record.employeeName}'s labor record` : 'this labor record';
     
     let confirmed = false;

@@ -226,7 +226,7 @@ function getStatusClass(status) {
  * View application details
  */
 async function viewApplicationDetails(appId) {
-    const app = applications.find(a => a.id === appId);
+    const app = applications.find(a => String(a.id) === String(appId));
     if (!app) return;
     
     const modal = document.getElementById("detailModal");
@@ -356,7 +356,7 @@ function closeDetailModal() {
  * Show update status modal
  */
 function showUpdateStatusModal(appId) {
-    const app = applications.find(a => a.id === appId);
+    const app = applications.find(a => String(a.id) === String(appId));
     if (!app) return;
     
     document.getElementById("updateAppId").value = app.id;

@@ -53,7 +53,7 @@ function handleAddDayLabor(payload, sessionUser) {
       };
     }
     
-    // Prepare record data
+    // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
       date: payload.date,
@@ -62,6 +62,8 @@ function handleAddDayLabor(payload, sessionUser) {
       clientId: payload.clientId || '',
       clientName: payload.clientName || '',
       hoursWorked: parseNumber(payload.hoursWorked, 0),
+      rate: parseNumber(payload.rate, 0),
+      amount: parseNumber(payload.amount, 0),
       notes: payload.notes || ''
     };
     

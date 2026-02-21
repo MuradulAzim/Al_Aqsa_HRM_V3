@@ -108,7 +108,7 @@ function renderJobPosts() {
  * View job details in modal
  */
 function viewJobDetails(jobId) {
-    const job = jobPosts.find(j => j.id === jobId);
+    const job = jobPosts.find(j => String(j.id) === String(jobId));
     if (!job) return;
     
     const modal = document.getElementById("jobDetailModal");

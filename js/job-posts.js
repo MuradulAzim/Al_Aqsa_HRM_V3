@@ -163,7 +163,7 @@ function showAddJobPostModal() {
  * Edit job post
  */
 function editJobPost(jobId) {
-    const job = jobPosts.find(j => j.id === jobId);
+    const job = jobPosts.find(j => String(j.id) === String(jobId));
     if (!job) return;
     
     document.getElementById("modalTitle").textContent = "Edit Job Post";
@@ -216,8 +216,8 @@ async function saveJobPost(event) {
         deadline: document.getElementById("jobDeadline").value,
         description: document.getElementById("jobDescription").value.trim(),
         requirements: document.getElementById("jobRequirements").value.trim(),
-        status: isEdit ? (jobPosts.find(j => j.id === jobId)?.status || 'Open') : 'Open',
-        createdAt: isEdit ? (jobPosts.find(j => j.id === jobId)?.createdAt || getTodayISOJobPosts()) : getTodayISOJobPosts()
+        status: isEdit ? (jobPosts.find(j => String(j.id) === String(jobId))?.status || 'Open') : 'Open',
+        createdAt: isEdit ? (jobPosts.find(j => String(j.id) === String(jobId))?.createdAt || getTodayISOJobPosts()) : getTodayISOJobPosts()
     };
     
     // Validation
@@ -258,7 +258,7 @@ async function saveJobPost(event) {
  * Close job post (stop accepting applications)
  */
 async function closeJobPost(jobId) {
-    const job = jobPosts.find(j => j.id === jobId);
+    const job = jobPosts.find(j => String(j.id) === String(jobId));
     if (!job) return;
     
     const jobName = job.title || 'this job post';
@@ -300,7 +300,7 @@ async function closeJobPost(jobId) {
  * Reopen job post
  */
 async function reopenJobPost(jobId) {
-    const job = jobPosts.find(j => j.id === jobId);
+    const job = jobPosts.find(j => String(j.id) === String(jobId));
     if (!job) return;
     
     const jobName = job.title || 'this job post';
@@ -342,7 +342,7 @@ async function reopenJobPost(jobId) {
  * Delete job post (only if no applications exist)
  */
 async function deleteJobPost(jobId) {
-    const job = jobPosts.find(j => j.id === jobId);
+    const job = jobPosts.find(j => String(j.id) === String(jobId));
     const jobName = job ? job.title : 'this job post';
     
     let confirmed = false;

@@ -243,7 +243,7 @@ function resetForm() {
  * @param {string} id - Employee ID (string)
  */
 function viewEmployee(id) {
-    const emp = employees.find(e => e.id === id);
+    const emp = employees.find(e => String(e.id) === String(id));
     if (!emp) {
         console.error("Employee not found:", id);
         return;
@@ -274,7 +274,7 @@ function viewEmployee(id) {
  * @param {string} id - Employee ID (string)
  */
 function editEmployee(id) {
-    const emp = employees.find(e => e.id === id);
+    const emp = employees.find(e => String(e.id) === String(id));
     if (!emp) {
         console.error("Employee not found:", id);
         return;
@@ -307,7 +307,7 @@ function editEmployee(id) {
  * @param {string} id - Employee ID (string)
  */
 async function deleteEmployee(id) {
-    const emp = employees.find(e => e.id === id);
+    const emp = employees.find(e => String(e.id) === String(id));
     const empName = emp ? emp.name : 'this employee';
     
     let confirmed = false;

@@ -48,12 +48,12 @@ function setupDatabase() {
   
   // Create all sheets with headers
   createSheet(ss, SHEETS.USERS, ['id', 'username', 'passwordHash', 'role', 'status', 'createdAt']);
-  createSheet(ss, SHEETS.EMPLOYEES, ['id', 'name', 'nid', 'phone', 'address', 'bank', 'joiningDate', 'contractType', 'dailyRate', 'status']);
-  createSheet(ss, SHEETS.CLIENTS, ['id', 'companyName', 'contactPerson', 'phone', 'email', 'address', 'status']);
-  createSheet(ss, SHEETS.GUARD_DUTY, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'status', 'remarks']);
-  createSheet(ss, SHEETS.ESCORT_DUTY, ['id', 'startDate', 'endDate', 'employeeId', 'employeeName', 'clientId', 'clientName', 'totalDays', 'conveyance', 'status', 'notes']);
-  createSheet(ss, SHEETS.DAY_LABOR, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'notes']);
-  createSheet(ss, SHEETS.LOAN_ADVANCE, ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'status', 'notes']);
+  createSheet(ss, SHEETS.EMPLOYEES, ['id', 'name', 'phone', 'nid', 'role', 'salary', 'deployedAt', 'joinDate', 'guardianName', 'guardianPhone', 'address', 'status']);
+  createSheet(ss, SHEETS.CLIENTS, ['id', 'name', 'contactPerson', 'phone', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt']);
+  createSheet(ss, SHEETS.GUARD_DUTY, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'shift', 'status', 'checkIn', 'checkOut', 'notes']);
+  createSheet(ss, SHEETS.ESCORT_DUTY, ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes']);
+  createSheet(ss, SHEETS.DAY_LABOR, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes']);
+  createSheet(ss, SHEETS.LOAN_ADVANCE, ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'paymentMethod', 'remarks', 'repaymentType', 'monthlyDeduct', 'status', 'createdAt']);
   createSheet(ss, SHEETS.SALARY_LEDGER, ['id', 'employeeId', 'employeeName', 'sourceModule', 'sourceId', 'date', 'shiftOrHours', 'earnedAmount', 'deductedAmount', 'netChange', 'runningBalance', 'month', 'createdAt']);
   createSheet(ss, SHEETS.PROCESSED_EVENTS, ['eventKey', 'processedAt']);
   createSheet(ss, SHEETS.INVOICES, ['id', 'invoiceNumber', 'clientId', 'clientName', 'periodStart', 'periodEnd', 'totalEscortDays', 'escortAmount', 'totalGuardDays', 'guardAmount', 'totalLaborHours', 'laborAmount', 'subtotal', 'vatPercent', 'vatAmount', 'totalAmount', 'status', 'createdAt']);
@@ -106,6 +106,59 @@ function createSheet(ss, sheetName, headers) {
   sheet.appendRow(headers);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
   return sheet;
+}
+
+/**
+ * Migrate existing database sheets to v3 schema.
+ * Adds missing columns to existing sheets without deleting data or reordering columns.
+ * Safe to run multiple times (idempotent).
+ */
+function migrateDatabase() {
+  const ss = getSpreadsheet();
+  const v3Schema = {
+    [SHEETS.EMPLOYEES]:        ['id', 'name', 'phone', 'nid', 'role', 'salary', 'deployedAt', 'joinDate', 'guardianName', 'guardianPhone', 'address', 'status'],
+    [SHEETS.CLIENTS]:          ['id', 'name', 'contactPerson', 'phone', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt'],
+    [SHEETS.GUARD_DUTY]:       ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'shift', 'status', 'checkIn', 'checkOut', 'notes'],
+    [SHEETS.ESCORT_DUTY]:      ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes'],
+    [SHEETS.DAY_LABOR]:        ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes'],
+    [SHEETS.LOAN_ADVANCE]:     ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'paymentMethod', 'remarks', 'repaymentType', 'monthlyDeduct', 'status', 'createdAt']
+  };
+
+  const results = [];
+  for (const [sheetName, expectedHeaders] of Object.entries(v3Schema)) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      Logger.log('SKIP: Sheet "' + sheetName + '" not found');
+      results.push({ sheet: sheetName, added: [], skipped: true });
+      continue;
+    }
+
+    const lastCol = sheet.getLastColumn();
+    const currentHeaders = lastCol > 0
+      ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String)
+      : [];
+
+    const missingHeaders = expectedHeaders.filter(h => currentHeaders.indexOf(h) === -1);
+    if (missingHeaders.length === 0) {
+      Logger.log('OK: Sheet "' + sheetName + '" already up-to-date');
+      results.push({ sheet: sheetName, added: [], skipped: false });
+      continue;
+    }
+
+    // Append missing columns to the right
+    const startCol = lastCol + 1;
+    sheet.getRange(1, startCol, 1, missingHeaders.length)
+      .setValues([missingHeaders])
+      .setFontWeight('bold');
+
+    Logger.log('MIGRATED: Sheet "' + sheetName + '" — added columns: ' + missingHeaders.join(', '));
+    results.push({ sheet: sheetName, added: missingHeaders, skipped: false });
+  }
+
+  Logger.log('='.repeat(60));
+  Logger.log('DATABASE MIGRATION COMPLETE');
+  Logger.log('='.repeat(60));
+  return results;
 }
 
 // ============================================
