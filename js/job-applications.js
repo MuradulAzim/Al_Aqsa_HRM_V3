@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const authed = await requireAuth();
         if (!authed) return;
     }
-    if (typeof renderUserInfo === 'function') renderUserInfo();
+    if (typeof renderUserInfo === 'function') renderUserInfo('userInfo');
     
     // Initialize UX enhancements
     if (typeof initFormValidation === 'function') initFormValidation('statusForm');

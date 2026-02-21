@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const authed = await requireAuth();
         if (!authed) return;
     }
-    if (typeof renderUserInfo === 'function') renderUserInfo();
+    if (typeof renderUserInfo === 'function') renderUserInfo('userInfo');
     
     // Set initial month filter
     const monthInput = document.getElementById('filterMonth');

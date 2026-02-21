@@ -371,7 +371,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     // Render user info in header
     if (typeof renderUserInfo === 'function') {
-        renderUserInfo();
+        renderUserInfo('userInfo');
     }
     
     // Initialize UX enhancements

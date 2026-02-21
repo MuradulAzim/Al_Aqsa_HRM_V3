@@ -47,6 +47,10 @@ function renderDashboardStats(stats) {
     setStatValue('statPresent', stats.guardDuty?.present || 0);
     setStatValue('statAbsent', stats.guardDuty?.absent || 0);
     setStatValue('statLate', stats.guardDuty?.late || 0);
+    
+    // File upload stats
+    setStatValue('statTotalFiles', stats.files?.total || 0);
+    setStatValue('statTodayFiles', stats.files?.todayUploads || 0);
 }
 
 /**

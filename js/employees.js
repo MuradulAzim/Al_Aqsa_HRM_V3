@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const authed = await requireAuth();
         if (!authed) return;
     }
-    if (typeof renderUserInfo === 'function') renderUserInfo();
+    if (typeof renderUserInfo === 'function') renderUserInfo('userInfo');
     
     // Initialize form validation
     if (typeof initFormValidation === 'function') {

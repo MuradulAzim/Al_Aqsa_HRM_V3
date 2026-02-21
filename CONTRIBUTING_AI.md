@@ -62,6 +62,10 @@ if (!USE_BACKEND) { return mockResponse; }
 function getSessionUser() { return JSON.parse(localStorage.getItem(...)); }
 ```
 
+❌ Do NOT suggest adding CORS headers in Google Apps Script.
+GAS does not support custom response headers.
+Any "CORS error" must be diagnosed as a deployment or request-shape issue.
+
 ## 6. Allowed Patterns
 
 ```javascript

@@ -128,6 +128,7 @@ function handleGetDashboardStats(payload, sessionUser) {
     const today = getTodayISO();
     const employees = getSheetData(SHEETS.EMPLOYEES);
     const guardDuty = getSheetData(SHEETS.GUARD_DUTY);
+    const fileUploads = getSheetData(SHEETS.FILE_UPLOADS);
     
     // Filter today's duty
     const todayDuty = guardDuty.filter(r => r.date === today);
@@ -144,6 +145,10 @@ function handleGetDashboardStats(payload, sessionUser) {
     const todayPresent = todayDuty.filter(r => r.status === 'Present').length;
     const todayAbsent = todayDuty.filter(r => r.status === 'Absent').length;
     const todayLate = todayDuty.filter(r => r.status === 'Late').length;
+
+    // Calculate file upload stats
+    const totalFiles = fileUploads.length;
+    const todayFiles = fileUploads.filter(f => f.uploadedAt && f.uploadedAt.startsWith(today)).length;
     
     return {
       success: true,
@@ -161,6 +166,10 @@ function handleGetDashboardStats(payload, sessionUser) {
           present: todayPresent,
           absent: todayAbsent,
           late: todayLate
+        },
+        files: {
+          total: totalFiles,
+          todayUploads: todayFiles
         }
       },
       message: 'Dashboard stats retrieved'

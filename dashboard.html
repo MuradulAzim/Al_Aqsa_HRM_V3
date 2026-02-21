@@ -85,6 +85,16 @@
                     <div class="text-sm text-gray-500">Late</div>
                     <div id="statLate" class="text-2xl font-bold text-yellow-600">-</div>
                 </div>
+
+                <!-- File Upload Stats -->
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-500">Total Files</div>
+                    <div id="statTotalFiles" class="text-2xl font-bold text-purple-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="text-sm text-gray-500">Files Uploaded Today</div>
+                    <div id="statTodayFiles" class="text-2xl font-bold text-purple-600">-</div>
+                </div>
             </div>
         </div>
 
@@ -106,7 +116,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const authed = await requireAuth();
             if (!authed) return;
-            renderUserInfo();
+            renderUserInfo('userInfo');
             renderModuleLinks();
         });
 
@@ -125,6 +135,7 @@
                 { id: 'LoanAdvance', page: 'loan-advance.html', label: 'Loan & Advance', desc: 'Manage loans & advances', icon: 'fas fa-hand-holding-usd' },
                 { id: 'Salary', page: 'salary.html', label: 'Salary Management', desc: 'Attendance-based salary ledger', icon: 'fas fa-money-bill-wave' },
                 { id: 'Invoice', page: 'invoices.html', label: 'Invoice Management', desc: 'Client billing & invoices', icon: 'fas fa-file-invoice' },
+                { id: 'Files', page: 'files.html', label: 'File Upload System', desc: 'Upload, manage & organize files', icon: 'fas fa-folder-open' },
                 { id: 'JobPosts', page: 'job-posts.html', label: 'Job Posts', desc: 'Manage job circulars', icon: 'fas fa-briefcase' },
                 { id: 'JobApplications', page: 'job-applications.html', label: 'Job Applications', desc: 'Review candidate applications', icon: 'fas fa-file-alt' },
                 { id: 'UserManagement', page: 'user-management.html', label: 'User Management', desc: 'Manage system users & roles', icon: 'fas fa-user-cog' }

@@ -47,7 +47,7 @@
   document.addEventListener('DOMContentLoaded', async () => {
       const authed = await requireAuth();
       if (!authed) return;
-      renderUserInfo();
+      renderUserInfo('userInfo');
       // ... module initialization
   });
   ```

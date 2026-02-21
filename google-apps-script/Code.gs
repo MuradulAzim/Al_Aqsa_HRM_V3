@@ -135,6 +135,7 @@ const BACKEND_PERMISSIONS = {
     LoanAdvance: { canView: true, canAdd: true, canEdit: true, canDelete: true },
     Salary: { canView: true, canAdd: true, canEdit: true, canDelete: true },
     Invoices: { canView: true, canAdd: true, canEdit: true, canDelete: true },
+    Files: { canView: true, canAdd: true, canEdit: true, canDelete: true },
     JobPosts: { canView: true, canAdd: true, canEdit: true, canDelete: true },
     JobApplications: { canView: true, canAdd: true, canEdit: true, canDelete: true },
     UserManagement: { canView: true, canAdd: true, canEdit: true, canDelete: true }
@@ -148,6 +149,7 @@ const BACKEND_PERMISSIONS = {
     LoanAdvance: { canView: true, canAdd: true, canEdit: true, canDelete: false },
     Salary: { canView: true, canAdd: true, canEdit: false, canDelete: false },
     Invoices: { canView: true, canAdd: true, canEdit: false, canDelete: false },
+    Files: { canView: true, canAdd: true, canEdit: false, canDelete: false },
     JobPosts: { canView: true, canAdd: true, canEdit: true, canDelete: false },
     JobApplications: { canView: true, canAdd: false, canEdit: true, canDelete: false },
     UserManagement: { canView: false, canAdd: false, canEdit: false, canDelete: false }
@@ -161,6 +163,7 @@ const BACKEND_PERMISSIONS = {
     LoanAdvance: { canView: true, canAdd: false, canEdit: false, canDelete: false },
     Salary: { canView: true, canAdd: false, canEdit: false, canDelete: false },
     Invoices: { canView: true, canAdd: false, canEdit: false, canDelete: false },
+    Files: { canView: true, canAdd: false, canEdit: false, canDelete: false },
     JobPosts: { canView: true, canAdd: false, canEdit: false, canDelete: false },
     JobApplications: { canView: true, canAdd: false, canEdit: false, canDelete: false },
     UserManagement: { canView: false, canAdd: false, canEdit: false, canDelete: false }
@@ -211,10 +214,10 @@ const ACTION_PERMISSIONS = {
   finalizeInvoice:         { module: 'Invoices', permission: 'canEdit' },
   markInvoicePaid:         { module: 'Invoices', permission: 'canEdit' },
   deleteInvoice:           { module: 'Invoices', permission: 'canDelete' },
-  // Files — auth-only at gate; module-specific checks inside handlers
-  uploadFile:              null,
-  getFiles:                null,
-  deleteFile:              null,
+  // Files
+  uploadFile:              { module: 'Files', permission: 'canAdd' },
+  getFiles:                { module: 'Files', permission: 'canView' },
+  deleteFile:              { module: 'Files', permission: 'canDelete' },
   // Job Posts (authenticated actions only; getJobPosts is PUBLIC)
   addJobPost:              { module: 'JobPosts', permission: 'canAdd' },
   updateJobPost:           { module: 'JobPosts', permission: 'canEdit' },
