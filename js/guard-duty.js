@@ -97,7 +97,7 @@ function renderPaginatedDutyTable() {
         <tr class="border-b border-gray-200 hover:bg-gray-50">
             <td class="px-4 py-3 text-sm text-gray-600">${displayIndex}</td>
             <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(record.employeeName || '')}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.clientId || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.clientName || record.clientId || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.date || '')}</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-1 text-xs rounded-full ${getShiftClass(record.shift)}">
@@ -334,6 +334,7 @@ async function handleSubmit(event) {
         employeeId: String(form.employeeId.value).trim(),
         employeeName: String(form.employeeName.value).trim(),
         clientId: String(form.clientId.value).trim(),
+        clientName: String(form.clientName.value).trim(),
         date: String(form.date.value).trim(),
         shift: String(form.shift.value).trim(),
         status: String(form.status.value).trim(),
@@ -438,7 +439,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Populate client dropdown
     if (typeof populateClientDropdown === 'function') {
         await populateClientDropdown({
-            selectId: 'clientId',
+            selectId: 'clientName',
+            hiddenIdField: 'clientId',
             includeEmpty: true,
             emptyLabel: 'Select Client'
         });

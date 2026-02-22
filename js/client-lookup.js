@@ -73,13 +73,13 @@ async function populateClientDropdown(options) {
     const sorted = [...clients]
         .filter(c => c.status === 'Active' || !c.status)
         .sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
+            const nameA = (a.companyName || a.name || '').toLowerCase();
+            const nameB = (b.companyName || b.name || '').toLowerCase();
             return nameA.localeCompare(nameB);
         });
 
     for (const client of sorted) {
-        const name = client.name || '';
+        const name = client.companyName || client.name || '';
         const id = client.id || '';
         optionsHtml += `<option value="${escapeAttr(name)}" data-client-id="${escapeAttr(id)}">${escapeAttr(name)}</option>`;
     }

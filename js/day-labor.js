@@ -389,6 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof populateClientDropdown === 'function') {
         await populateClientDropdown({
             selectId: 'clientName',
+            hiddenIdField: 'clientId',
             includeEmpty: true,
             emptyLabel: 'Select Client'
         });

@@ -53,7 +53,11 @@ async function refreshClients() {
  * @param {Array} data - Array of client objects
  */
 function renderClientsTable(data) {
-    clientsFilteredData = data || [];
+    clientsFilteredData = (data || []).slice().sort((a, b) => {
+        const nameA = (a.companyName || a.name || '').toLowerCase();
+        const nameB = (b.companyName || b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
     clientsPaginationState.currentPage = 1;
     renderPaginatedClientsTable();
 }
