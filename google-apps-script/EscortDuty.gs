@@ -43,8 +43,8 @@ function handleAddEscortDuty(payload, sessionUser) {
   }
   
   try {
-    // Validate required fields
-    const requiredFields = ['id', 'startDate', 'endDate', 'employeeName'];
+    // Validate required fields - endDate is optional (duty can be ongoing)
+    const requiredFields = ['id', 'startDate', 'employeeName'];
     const validationError = validateRequired(payload, requiredFields);
     if (validationError) {
       return {
@@ -118,5 +118,73 @@ function handleDeleteEscortDuty(payload, sessionUser) {
     };
   } catch (error) {
     return sanitizedError('deleteEscortDuty', error);
+  }
+}
+
+/**
+ * Update escort duty record
+ * Supports editing existing records (e.g. adding end date, recalculating days)
+ */
+function handleUpdateEscortDuty(payload, sessionUser) {
+  // Permission check
+  if (!checkPermission(sessionUser.role, 'EscortDuty', 'canEdit')) {
+    return unauthorizedResponse('updateEscortDuty');
+  }
+  
+  try {
+    // Validate required fields — id and startDate are always required
+    const requiredFields = ['id', 'startDate', 'employeeName'];
+    const validationError = validateRequired(payload, requiredFields);
+    if (validationError) {
+      return {
+        success: false,
+        action: 'updateEscortDuty',
+        data: null,
+        message: validationError
+      };
+    }
+    
+    // Check record exists
+    const existing = findById(SHEETS.ESCORT_DUTY, payload.id);
+    if (!existing) {
+      return {
+        success: false,
+        action: 'updateEscortDuty',
+        data: null,
+        message: 'Escort duty record not found'
+      };
+    }
+    
+    // Prepare updated record data
+    const recordData = {
+      id: payload.id,
+      employeeId: payload.employeeId || existing.employeeId || '',
+      employeeName: payload.employeeName,
+      clientId: payload.clientId || existing.clientId || '',
+      clientName: payload.clientName || existing.clientName || '',
+      vesselName: payload.vesselName || existing.vesselName || '',
+      lighterName: payload.lighterName || existing.lighterName || '',
+      startDate: payload.startDate,
+      startShift: payload.startShift || existing.startShift || '',
+      endDate: payload.endDate || '',
+      endShift: payload.endShift || '',
+      releasePoint: payload.releasePoint || existing.releasePoint || '',
+      totalDays: parseNumber(payload.totalDays, 0),
+      conveyance: parseNumber(payload.conveyance, 0),
+      status: payload.status || existing.status || 'Active',
+      notes: payload.notes !== undefined ? payload.notes : (existing.notes || '')
+    };
+    
+    // Update record
+    updateRecord(SHEETS.ESCORT_DUTY, payload.id, recordData);
+    
+    return {
+      success: true,
+      action: 'updateEscortDuty',
+      data: recordData,
+      message: 'Escort duty record updated'
+    };
+  } catch (error) {
+    return sanitizedError('updateEscortDuty', error);
   }
 }

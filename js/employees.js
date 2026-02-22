@@ -30,9 +30,18 @@ async function refreshEmployees() {
         const response = await request("getEmployees", {});
         if (response.success && Array.isArray(response.data)) {
             employees = response.data;
+            // Sort employees A-Z by name
+            employees.sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
         } else {
             employees = [];
         }
+        // Clear search box on refresh and render
+        const searchInput = document.getElementById('employeeSearch');
+        if (searchInput) searchInput.value = '';
         renderEmployeesTable(employees);
     } catch (error) {
         console.error("Failed to refresh employees:", error);
@@ -158,6 +167,34 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ============================================
+// SEARCH / FILTER
+// ============================================
+
+/**
+ * Filter employees by search term (ID, name, phone, role)
+ * Called on input from the search box
+ */
+function filterEmployees() {
+    const searchInput = document.getElementById('employeeSearch');
+    const term = (searchInput ? searchInput.value : '').trim().toLowerCase();
+
+    if (!term) {
+        renderEmployeesTable(employees);
+        return;
+    }
+
+    const filtered = employees.filter(emp => {
+        const id = (emp.id || '').toString().toLowerCase();
+        const name = (emp.name || '').toLowerCase();
+        const phone = (emp.phone || '').toString().toLowerCase();
+        const role = (emp.role || '').toLowerCase();
+        return id.includes(term) || name.includes(term) || phone.includes(term) || role.includes(term);
+    });
+
+    renderEmployeesTable(filtered);
 }
 
 // ============================================

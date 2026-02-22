@@ -379,6 +379,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof initFormValidation === 'function') initFormValidation('laborForm');
     if (typeof initModalAccessibility === 'function') initModalAccessibility('laborFormModal', closeLaborModal);
     
+    // Initialize employee lookup (type-ahead)
+    if (typeof initEmployeeLookup === 'function') {
+        initEmployeeLookup({ inputId: 'employeeName', hiddenIdField: 'employeeId' });
+        preloadEmployeeLookup();
+    }
+    
     // Set default date and initial load
     if (!currentDate) {
         currentDate = new Date().toISOString().split('T')[0];

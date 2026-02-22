@@ -96,6 +96,7 @@ function renderPaginatedEscortTable() {
 
     tbody.innerHTML = result.items.map((record, localIndex) => {
         const displayIndex = result.startIndex + localIndex;
+        const isOngoing = !record.endDate;
         return `
         <tr class="border-b border-gray-200 hover:bg-gray-50">
             <td class="px-4 py-3 text-sm text-gray-600">${displayIndex}</td>
@@ -104,15 +105,17 @@ function renderPaginatedEscortTable() {
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.vesselName || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.lighterName || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.startDate || '')} ${escapeHtml(record.startShift || '')}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.endDate || '')} ${escapeHtml(record.endShift || '')}</td>
-            <td class="px-4 py-3 text-sm text-gray-800 font-medium">${record.totalDays || 0}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${isOngoing ? '<span class="text-blue-600 font-medium">Ongoing</span>' : escapeHtml(record.endDate || '') + ' ' + escapeHtml(record.endShift || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-800 font-medium">${isOngoing ? '-' : (record.totalDays || 0)}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${record.conveyance || 0}</td>
             <td class="px-4 py-3 text-sm">
                 <span class="px-2 py-1 rounded-full text-xs ${record.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
                     ${escapeHtml(record.status || '')}
                 </span>
             </td>
-            <td class="px-4 py-3 text-sm">
+            <td class="px-4 py-3 text-sm space-x-1">
+                <button onclick="viewEscortRecord('${record.id}')" class="text-blue-600 hover:text-blue-800">View</button>
+                <button onclick="editEscortRecord('${record.id}')" class="text-green-600 hover:text-green-800">Edit</button>
                 <button onclick="deleteRecord('${record.id}')" class="text-red-600 hover:text-red-800">Delete</button>
             </td>
         </tr>
@@ -141,13 +144,15 @@ function renderPaginatedEscortTable() {
  */
 function updateEscortSummary(data) {
     const totalRecords = data.length;
-    const totalDays = data.reduce((sum, r) => sum + (Number(r.totalDays) || 0), 0);
+    const totalDays = data.reduce((sum, r) => r.endDate ? sum + (Number(r.totalDays) || 0) : sum, 0);
+    const ongoingCount = data.filter(r => !r.endDate).length;
     const activeCount = data.filter(r => r.status === 'Active').length;
     const inactiveCount = data.filter(r => r.status === 'Inactive').length;
 
     setElementText('summaryTotalRecords', totalRecords);
     setElementText('summaryTotalDays', totalDays);
     setElementText('summaryActiveEscorts', activeCount);
+    setElementText('summaryOngoingEscorts', ongoingCount);
     setElementText('summaryInactiveEscorts', inactiveCount);
 }
 
@@ -295,16 +300,29 @@ function calculateTotalDays(startDate, startShift, endDate, endShift) {
 function openAddEscortModal() {
     const modal = document.getElementById('escortFormModal');
     const form = document.getElementById('escortForm');
+    const modalTitle = document.getElementById('escortFormModalTitle');
     
     if (form) {
         form.reset();
-        // Pre-fill dates with current range
+        // Clear hidden fields
+        form.employeeId.value = '';
+        // Remove edit mode marker
+        delete form.dataset.editId;
+        // Pre-fill start date
         form.startDate.value = currentRange.startDate;
-        form.endDate.value = currentRange.endDate;
-        form.startShift.value = 'Day';
-        form.endShift.value = 'Night';
+        form.startShift.value = '';
+        form.endDate.value = '';
+        form.endShift.value = '';
         form.status.value = 'Active';
     }
+    
+    if (modalTitle) {
+        modalTitle.textContent = 'Add Escort Duty';
+    }
+    
+    // Update submit button text
+    const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+    if (submitBtn) submitBtn.textContent = 'Save Escort';
     
     if (modal) {
         modal.classList.remove('hidden');
@@ -322,7 +340,7 @@ function closeEscortModal() {
 }
 
 /**
- * Handle form submission for adding escort record
+ * Handle form submission for adding/editing escort record
  * @param {Event} event - Form submit event
  */
 async function handleSubmit(event) {
@@ -341,8 +359,12 @@ async function handleSubmit(event) {
         ? setButtonLoading(submitBtn, 'Saving...') 
         : () => {};
 
-    // Generate unique ID
-    const id = 'ED-' + Date.now();
+    // Check if editing existing record
+    const editId = form.dataset.editId || '';
+    const isEdit = !!editId;
+
+    // Generate unique ID for new records
+    const id = isEdit ? editId : 'ED-' + Date.now();
 
     // Get form values
     const startDate = String(form.startDate.value).trim();
@@ -350,8 +372,13 @@ async function handleSubmit(event) {
     const endDate = String(form.endDate.value).trim();
     const endShift = String(form.endShift.value).trim();
     
-    // Calculate totalDays locally
-    const totalDays = calculateTotalDays(startDate, startShift, endDate, endShift);
+    // Calculate totalDays — only if both start and end dates exist
+    let totalDays = 0;
+    if (startDate && endDate) {
+        const sShift = startShift || 'Day';
+        const eShift = endShift || 'Night';
+        totalDays = calculateTotalDays(startDate, sShift, endDate, eShift);
+    }
 
     const payload = {
         id: id,
@@ -373,12 +400,13 @@ async function handleSubmit(event) {
     };
 
     try {
-        const response = await request("addEscortDuty", payload);
+        const action = isEdit ? 'updateEscortDuty' : 'addEscortDuty';
+        const response = await request(action, payload);
         if (response.success) {
             closeEscortModal();
             await refreshEscortDuty(currentRange);
             if (typeof showToast === 'function') {
-                showToast('Escort record saved successfully', 'success');
+                showToast(isEdit ? 'Escort record updated successfully' : 'Escort record saved successfully', 'success');
             }
         } else {
             if (typeof showToast === 'function') {
@@ -386,13 +414,144 @@ async function handleSubmit(event) {
             }
         }
     } catch (error) {
-        console.error("Error adding escort record:", error);
+        console.error("Error saving escort record:", error);
         if (typeof showToast === 'function') {
             showToast('Error saving escort record', 'error');
         }
     } finally {
         restoreBtn();
     }
+}
+
+// ============================================
+// VIEW & EDIT OPERATIONS
+// ============================================
+
+/**
+ * View escort record details in a modal
+ * @param {string} id - Record ID
+ */
+function viewEscortRecord(id) {
+    const record = escortRecords.find(r => String(r.id) === String(id));
+    if (!record) {
+        console.error("Escort record not found:", id);
+        return;
+    }
+
+    const isOngoing = !record.endDate;
+    const details = `
+        <div class="space-y-2 text-sm">
+            <p><strong>Employee:</strong> ${escapeHtml(record.employeeName || '')} ${record.employeeId ? '(' + escapeHtml(record.employeeId) + ')' : ''}</p>
+            <p><strong>Client:</strong> ${escapeHtml(record.clientName || '')}</p>
+            <p><strong>Vessel:</strong> ${escapeHtml(record.vesselName || '-')}</p>
+            <p><strong>Lighter:</strong> ${escapeHtml(record.lighterName || '-')}</p>
+            <hr class="my-2">
+            <p><strong>Start Date:</strong> ${escapeHtml(record.startDate || '')} ${escapeHtml(record.startShift || '')}</p>
+            <p><strong>End Date:</strong> ${isOngoing ? '<span class="text-blue-600 font-medium">Ongoing</span>' : escapeHtml(record.endDate || '') + ' ' + escapeHtml(record.endShift || '')}</p>
+            <p><strong>Total Days:</strong> ${isOngoing ? 'N/A (ongoing)' : (record.totalDays || 0)}</p>
+            <p><strong>Release Point:</strong> ${escapeHtml(record.releasePoint || '-')}</p>
+            <p><strong>Conveyance:</strong> ${record.conveyance || 0}</p>
+            <p><strong>Salary:</strong> ${isOngoing ? '<span class="text-amber-600 font-medium">Pending (duty ongoing)</span>' : 'Calculated on completion'}</p>
+            <p><strong>Status:</strong> ${escapeHtml(record.status || '')}</p>
+            <p><strong>Notes:</strong> ${escapeHtml(record.notes || '-')}</p>
+        </div>
+    `;
+
+    // Use the escort-specific view modal
+    showEscortViewModal('Escort Duty Details', details);
+}
+
+/**
+ * Edit escort record — populate modal with existing data
+ * @param {string} id - Record ID
+ */
+function editEscortRecord(id) {
+    const record = escortRecords.find(r => String(r.id) === String(id));
+    if (!record) {
+        console.error("Escort record not found:", id);
+        return;
+    }
+
+    const modal = document.getElementById('escortFormModal');
+    const form = document.getElementById('escortForm');
+    const modalTitle = document.getElementById('escortFormModalTitle');
+
+    if (!form) return;
+
+    // Set edit mode
+    form.dataset.editId = record.id;
+
+    // Populate form fields
+    form.employeeId.value = record.employeeId || '';
+    form.employeeName.value = record.employeeName || '';
+    form.clientId.value = record.clientId || '';
+    form.clientName.value = record.clientName || '';
+    form.vesselName.value = record.vesselName || '';
+    form.lighterName.value = record.lighterName || '';
+    form.startDate.value = record.startDate || '';
+    form.startShift.value = record.startShift || '';
+    form.endDate.value = record.endDate || '';
+    form.endShift.value = record.endShift || '';
+    form.releasePoint.value = record.releasePoint || '';
+    form.conveyance.value = record.conveyance || 0;
+    form.status.value = record.status || 'Active';
+    form.notes.value = record.notes || '';
+
+    if (modalTitle) {
+        modalTitle.textContent = 'Edit Escort Duty';
+    }
+
+    // Update submit button text
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Update Escort';
+
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+/**
+ * Show escort view modal (reusable for view details)
+ * @param {string} title - Modal title
+ * @param {string} content - HTML content
+ */
+function showEscortViewModal(title, content) {
+    // Check if a generic view modal exists, otherwise create one
+    let modal = document.getElementById('escortViewModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'escortViewModal';
+        modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full mx-4">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                    <h3 id="escortViewModalTitle" class="text-lg font-semibold text-gray-800"></h3>
+                    <button onclick="closeEscortViewModal()" class="text-gray-500 hover:text-gray-700" title="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="escortViewModalContent" class="px-6 py-4"></div>
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+                    <button onclick="closeEscortViewModal()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    document.getElementById('escortViewModalTitle').textContent = title;
+    document.getElementById('escortViewModalContent').innerHTML = content;
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Close escort view modal
+ */
+function closeEscortViewModal() {
+    const modal = document.getElementById('escortViewModal');
+    if (modal) modal.classList.add('hidden');
 }
 
 // ============================================
@@ -454,6 +613,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Initialize UX enhancements
     if (typeof initFormValidation === 'function') initFormValidation('escortForm');
     if (typeof initModalAccessibility === 'function') initModalAccessibility('escortFormModal', closeEscortModal);
+    
+    // Initialize employee lookup (type-ahead)
+    if (typeof initEmployeeLookup === 'function') {
+        initEmployeeLookup({ inputId: 'employeeName', hiddenIdField: 'employeeId' });
+        preloadEmployeeLookup();
+    }
     
     // Set initial date range inputs
     const startInput = document.getElementById('filterStartDate');

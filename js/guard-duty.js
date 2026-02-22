@@ -429,6 +429,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof initFormValidation === 'function') initFormValidation('dutyForm');
     if (typeof initModalAccessibility === 'function') initModalAccessibility('dutyFormModal', closeDutyModal);
     
+    // Initialize employee lookup (type-ahead)
+    if (typeof initEmployeeLookup === 'function') {
+        initEmployeeLookup({ inputId: 'employeeName', hiddenIdField: 'employeeId' });
+        preloadEmployeeLookup();
+    }
+    
     // Initial load
     await refreshGuardDuty();
 });

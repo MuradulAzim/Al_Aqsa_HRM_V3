@@ -200,6 +200,7 @@ const ACTION_PERMISSIONS = {
   // Escort Duty
   getEscortDuty:           { module: 'EscortDuty', permission: 'canView' },
   addEscortDuty:           { module: 'EscortDuty', permission: 'canAdd' },
+  updateEscortDuty:        { module: 'EscortDuty', permission: 'canEdit' },
   deleteEscortDuty:        { module: 'EscortDuty', permission: 'canDelete' },
   // Loan / Advance
   getLoanAdvance:          { module: 'LoanAdvance', permission: 'canView' },
@@ -635,6 +636,8 @@ function routeAction(action, payload, sessionUser) {
       return handleGetEscortDuty(payload, sessionUser);
     case 'addEscortDuty':
       return handleAddEscortDuty(payload, sessionUser);
+    case 'updateEscortDuty':
+      return handleUpdateEscortDuty(payload, sessionUser);
     case 'deleteEscortDuty':
       return handleDeleteEscortDuty(payload, sessionUser);
 

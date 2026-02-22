@@ -138,10 +138,12 @@ function handleGenerateSalary(payload, sessionUser) {
       }
     });
     
-    // Process Escort Duty (Active only)
+    // Process Escort Duty (Active + completed only — skip ongoing duties without endDate)
     const escortDuty = getSheetData(SHEETS.ESCORT_DUTY);
     escortDuty.forEach(escort => {
       const eventKey = 'escort-' + escort.id;
+      // Skip ongoing duties (no endDate) — salary is calculated only after duty completion
+      if (!escort.endDate) return;
       if (!processedEvents.includes(eventKey) && escort.status === 'Active') {
         const totalDays = parseNumber(escort.totalDays, 0);
         const conveyance = parseNumber(escort.conveyance, 0);
