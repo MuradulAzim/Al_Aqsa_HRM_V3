@@ -356,6 +356,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (typeof initFormValidation === 'function') initFormValidation('loanForm');
     if (typeof initModalAccessibility === 'function') initModalAccessibility('loanFormModal', closeLoanModal);
     
+    // Initialize employee lookup (type-ahead)
+    if (typeof initEmployeeLookup === 'function') {
+        initEmployeeLookup({ inputId: 'employeeName', hiddenIdField: 'employeeId' });
+        preloadEmployeeLookup();
+    }
+    
     // Initial data load
     await refreshLoanAdvance();
 });

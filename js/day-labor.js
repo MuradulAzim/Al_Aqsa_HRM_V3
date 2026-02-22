@@ -385,6 +385,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         preloadEmployeeLookup();
     }
     
+    // Populate client dropdown
+    if (typeof populateClientDropdown === 'function') {
+        await populateClientDropdown({
+            selectId: 'clientName',
+            includeEmpty: true,
+            emptyLabel: 'Select Client'
+        });
+    }
+    
     // Set default date and initial load
     if (!currentDate) {
         currentDate = new Date().toISOString().split('T')[0];

@@ -620,6 +620,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         preloadEmployeeLookup();
     }
     
+    // Populate client dropdown
+    if (typeof populateClientDropdown === 'function') {
+        await populateClientDropdown({
+            selectId: 'clientName',
+            hiddenIdField: 'clientId',
+            includeEmpty: true,
+            emptyLabel: 'Select Client'
+        });
+    }
+    
     // Set initial date range inputs
     const startInput = document.getElementById('filterStartDate');
     const endInput = document.getElementById('filterEndDate');

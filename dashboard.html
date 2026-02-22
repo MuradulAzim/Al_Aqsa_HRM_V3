@@ -118,6 +118,7 @@
             if (!authed) return;
             renderUserInfo('userInfo');
             renderModuleLinks();
+            await refreshDashboard('init');
         });
 
         // Render module links

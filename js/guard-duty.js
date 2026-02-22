@@ -435,6 +435,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         preloadEmployeeLookup();
     }
     
+    // Populate client dropdown
+    if (typeof populateClientDropdown === 'function') {
+        await populateClientDropdown({
+            selectId: 'clientId',
+            includeEmpty: true,
+            emptyLabel: 'Select Client'
+        });
+    }
+    
     // Initial load
     await refreshGuardDuty();
 });

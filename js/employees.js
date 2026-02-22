@@ -428,6 +428,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         initModalAccessibility('modal', closeModal);
     }
     
+    // Populate Deployed At dropdown with active clients
+    if (typeof populateClientDropdown === 'function') {
+        await populateClientDropdown({
+            selectId: 'deployedAt',
+            includeEmpty: true,
+            emptyLabel: 'Not Deployed'
+        });
+    }
+    
     // Initial load
     await refreshEmployees();
 });
