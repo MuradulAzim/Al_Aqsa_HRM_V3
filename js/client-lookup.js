@@ -5,7 +5,7 @@
 // Used by Employee Management, Guard Duty, Day Labor, Escort Duty forms.
 // Fetches clients from the backend via existing getClients endpoint.
 // NO permission logic — data comes from existing getClients action.
-// Modeled after employee-lookup.js pattern.
+// Canonical client name field: companyName (matches Google Sheet header).
 
 /**
  * Cached client list for dropdown (fetched once per page load)
@@ -71,15 +71,15 @@ async function populateClientDropdown(options) {
 
     // Sort clients alphabetically by name
     const sorted = [...clients]
-        .filter(c => c.status === 'Active' || !c.status)
+        .filter(c => (c.status || '').toLowerCase() !== 'inactive')
         .sort((a, b) => {
-            const nameA = (a.companyName || a.name || '').toLowerCase();
-            const nameB = (b.companyName || b.name || '').toLowerCase();
+            const nameA = (a.companyName || '').toLowerCase();
+            const nameB = (b.companyName || '').toLowerCase();
             return nameA.localeCompare(nameB);
         });
 
     for (const client of sorted) {
-        const name = client.companyName || client.name || '';
+        const name = client.companyName || '';
         const id = client.id || '';
         optionsHtml += `<option value="${escapeAttr(name)}" data-client-id="${escapeAttr(id)}">${escapeAttr(name)}</option>`;
     }
@@ -163,15 +163,15 @@ function initClientLookup(options) {
      */
     function filterClients(clients, term) {
         return clients
-            .filter(c => c.status === 'Active' || !c.status)
+            .filter(c => (c.status || '').toLowerCase() !== 'inactive')
             .filter(c => {
-                const name = (c.companyName || c.name || '').toLowerCase();
+                const name = (c.companyName || '').toLowerCase();
                 const id = (c.id || '').toString().toLowerCase();
                 return name.includes(term) || id.includes(term);
             })
             .sort((a, b) => {
-                const nameA = (a.companyName || a.name || '').toLowerCase();
-                const nameB = (b.companyName || b.name || '').toLowerCase();
+                const nameA = (a.companyName || '').toLowerCase();
+                const nameB = (b.companyName || '').toLowerCase();
                 return nameA.localeCompare(nameB);
             })
             .slice(0, 10);
@@ -200,7 +200,7 @@ function initClientLookup(options) {
         }
 
         dropdown.innerHTML = matches.map((client, idx) => {
-            const displayName = client.companyName || client.name || '';
+            const displayName = client.companyName || '';
             const displayId = client.id || '';
             return `<div class="client-lookup-item" role="option" data-index="${idx}"
                 style="padding:8px 12px; cursor:pointer; font-size:0.875rem; border-bottom:1px solid #f3f4f6;"
@@ -226,7 +226,7 @@ function initClientLookup(options) {
     // Select client helper
     function selectClient(client) {
         selectedClient = client;
-        input.value = client.companyName || client.name || '';
+        input.value = client.companyName || '';
         if (hiddenInput) {
             hiddenInput.value = client.id || '';
         }
@@ -243,9 +243,9 @@ function initClientLookup(options) {
             if (!selectedClient && input.value.trim()) {
                 const term = input.value.trim().toLowerCase();
                 const exactMatch = _lookupClients
-                    .filter(c => c.status === 'Active' || !c.status)
+                    .filter(c => (c.status || '').toLowerCase() !== 'inactive')
                     .find(c =>
-                        (c.companyName || c.name || '').toLowerCase() === term ||
+                        (c.companyName || '').toLowerCase() === term ||
                         (c.id || '').toString().toLowerCase() === term
                     );
                 if (exactMatch) {

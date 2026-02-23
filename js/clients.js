@@ -54,8 +54,8 @@ async function refreshClients() {
  */
 function renderClientsTable(data) {
     clientsFilteredData = (data || []).slice().sort((a, b) => {
-        const nameA = (a.companyName || a.name || '').toLowerCase();
-        const nameB = (b.companyName || b.name || '').toLowerCase();
+        const nameA = (a.companyName || '').toLowerCase();
+        const nameB = (b.companyName || '').toLowerCase();
         return nameA.localeCompare(nameB);
     });
     clientsPaginationState.currentPage = 1;
@@ -94,7 +94,7 @@ function renderPaginatedClientsTable() {
         <tr class="border-b border-gray-200 hover:bg-gray-50">
             <td class="px-4 py-3 text-sm text-gray-600">${displayIndex}</td>
             <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(client.id || '')}</td>
-            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(client.name || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(client.companyName || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(client.contactPerson || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(client.phone || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${client.contactRate || ''}</td>
@@ -238,10 +238,11 @@ async function handleSubmit(event) {
     // Collect form data - NO calculations
     const payload = {
         id: String(clientId),
-        name: String(form.name.value).trim(),
+        companyName: String(form.companyName.value).trim(),
         contactRate: form.contactRate.value ? Number(form.contactRate.value) : 0,
         contactPerson: String(form.contactPerson.value).trim(),
         phone: String(form.phone.value).trim(),
+        email: String(form.email.value).trim(),
         address: String(form.address.value).trim(),
         serviceStartDate: String(form.serviceStartDate.value).trim(),
         status: String(form.status.value).trim(),
@@ -307,10 +308,11 @@ function viewClient(id) {
     const details = `
         <div class="space-y-2">
             <p><strong>Client ID:</strong> ${escapeHtml(client.id)}</p>
-            <p><strong>Name:</strong> ${escapeHtml(client.name)}</p>
+            <p><strong>Company Name:</strong> ${escapeHtml(client.companyName)}</p>
             <p><strong>Contact Rate:</strong> ${client.contactRate}</p>
             <p><strong>Contact Person:</strong> ${escapeHtml(client.contactPerson)}</p>
             <p><strong>Phone:</strong> ${escapeHtml(client.phone)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(client.email || 'N/A')}</p>
             <p><strong>Address:</strong> ${escapeHtml(client.address)}</p>
             <p><strong>Service Start Date:</strong> ${escapeHtml(client.serviceStartDate)}</p>
             <p><strong>Assigned Employee Salary:</strong> ${client.assignedEmployeeSalary}</p>
@@ -344,10 +346,11 @@ function editClient(id) {
     form.dataset.createdAt = client.createdAt;
 
     // Populate form fields
-    form.name.value = client.name || '';
+    form.companyName.value = client.companyName || '';
     form.contactRate.value = client.contactRate || '';
     form.contactPerson.value = client.contactPerson || '';
     form.phone.value = client.phone || '';
+    form.email.value = client.email || '';
     form.address.value = client.address || '';
     form.serviceStartDate.value = client.serviceStartDate || '';
     form.assignedEmployeeSalary.value = client.assignedEmployeeSalary || '';
@@ -368,7 +371,7 @@ function editClient(id) {
  */
 async function deleteClient(id) {
     const client = clients.find(c => String(c.id) === String(id));
-    const clientName = client ? client.name : 'this client';
+    const clientName = client ? client.companyName : 'this client';
     
     let confirmed = false;
     if (typeof confirmDelete === 'function') {

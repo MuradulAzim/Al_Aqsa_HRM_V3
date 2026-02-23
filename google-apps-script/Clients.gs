@@ -41,26 +41,28 @@ function handleAddOrUpdateClient(payload, sessionUser) {
   }
   
   try {
+    // Accept both 'companyName' and legacy 'name' — canonical field is companyName
+    const resolvedName = (payload.companyName || payload.name || '').toString().trim();
+
     // Validate required fields
-    const requiredFields = ['id', 'name'];
-    const validationError = validateRequired(payload, requiredFields);
-    if (validationError) {
+    if (!payload.id || !resolvedName) {
       return {
         success: false,
         action: 'addOrUpdateClient',
         data: null,
-        message: validationError
+        message: 'Missing required fields: id, companyName'
       };
     }
     
-    // Prepare client data (v3 schema — aligned with frontend)
+    // Prepare client data — canonical schema (matches sheet headers)
     const clientData = {
       id: payload.id,
-      name: payload.name || '',
-      contactPerson: payload.contactPerson || '',
-      phone: payload.phone || '',
+      companyName: resolvedName,
+      contactPerson: (payload.contactPerson || '').toString().trim(),
+      phone: (payload.phone || '').toString().trim(),
+      email: (payload.email || '').toString().trim(),
       contactRate: parseNumber(payload.contactRate, 0),
-      address: payload.address || '',
+      address: (payload.address || '').toString().trim(),
       serviceStartDate: payload.serviceStartDate || '',
       lastBillSubmitted: payload.lastBillSubmitted || '',
       billStatus: payload.billStatus || '',

@@ -49,7 +49,7 @@ function setupDatabase() {
   // Create all sheets with headers
   createSheet(ss, SHEETS.USERS, ['id', 'username', 'passwordHash', 'role', 'status', 'createdAt']);
   createSheet(ss, SHEETS.EMPLOYEES, ['id', 'name', 'phone', 'nid', 'role', 'salary', 'deployedAt', 'joinDate', 'guardianName', 'guardianPhone', 'address', 'status']);
-  createSheet(ss, SHEETS.CLIENTS, ['id', 'name', 'contactPerson', 'phone', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt']);
+  createSheet(ss, SHEETS.CLIENTS, ['id', 'companyName', 'contactPerson', 'phone', 'email', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt']);
   createSheet(ss, SHEETS.GUARD_DUTY, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'shift', 'status', 'checkIn', 'checkOut', 'notes']);
   createSheet(ss, SHEETS.ESCORT_DUTY, ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes']);
   createSheet(ss, SHEETS.DAY_LABOR, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes']);
@@ -117,7 +117,7 @@ function migrateDatabase() {
   const ss = getSpreadsheet();
   const v3Schema = {
     [SHEETS.EMPLOYEES]:        ['id', 'name', 'phone', 'nid', 'role', 'salary', 'deployedAt', 'joinDate', 'guardianName', 'guardianPhone', 'address', 'status'],
-    [SHEETS.CLIENTS]:          ['id', 'name', 'contactPerson', 'phone', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt'],
+    [SHEETS.CLIENTS]:          ['id', 'companyName', 'contactPerson', 'phone', 'email', 'contactRate', 'address', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'status', 'createdAt'],
     [SHEETS.GUARD_DUTY]:       ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'status', 'checkIn', 'checkOut', 'notes'],
     [SHEETS.ESCORT_DUTY]:      ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes'],
     [SHEETS.DAY_LABOR]:        ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes'],
