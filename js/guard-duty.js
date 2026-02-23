@@ -289,21 +289,9 @@ function openAddDutyModal() {
         form.reset();
         // Pre-fill date with current date
         form.date.value = currentDate;
-    }
-
-    // Defensive: re-populate client dropdown if empty (init may have failed)
-    const clientSelect = document.getElementById('clientName');
-    if (clientSelect) {
-        // Ensure select is interactive
-        clientSelect.disabled = false;
-        if (clientSelect.options.length <= 1 && typeof populateClientDropdown === 'function') {
-            populateClientDropdown({
-                selectId: 'clientName',
-                hiddenIdField: 'clientId',
-                includeEmpty: true,
-                emptyLabel: 'Select Client'
-            });
-        }
+        // Clear hidden lookup fields (reset doesn't clear hidden inputs)
+        if (form.clientId) form.clientId.value = '';
+        if (form.employeeId) form.employeeId.value = '';
     }
 
     if (modal) {
@@ -451,16 +439,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         preloadEmployeeLookup();
     }
     
-    // Populate client dropdown
-    if (typeof populateClientDropdown === 'function') {
-        await populateClientDropdown({
-            selectId: 'clientName',
-            hiddenIdField: 'clientId',
-            includeEmpty: true,
-            emptyLabel: 'Select Client'
-        });
+    // Initialize client lookup (type-ahead)
+    if (typeof initClientLookup === 'function') {
+        initClientLookup({ inputId: 'clientName', hiddenIdField: 'clientId' });
+        preloadClientLookup();
     }
     
     // Initial load
-    await refreshGuardDuty();
+    await refreshGuardDuty(currentDate);
 });
