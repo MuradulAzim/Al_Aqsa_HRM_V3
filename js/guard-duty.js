@@ -290,7 +290,22 @@ function openAddDutyModal() {
         // Pre-fill date with current date
         form.date.value = currentDate;
     }
-    
+
+    // Defensive: re-populate client dropdown if empty (init may have failed)
+    const clientSelect = document.getElementById('clientName');
+    if (clientSelect) {
+        // Ensure select is interactive
+        clientSelect.disabled = false;
+        if (clientSelect.options.length <= 1 && typeof populateClientDropdown === 'function') {
+            populateClientDropdown({
+                selectId: 'clientName',
+                hiddenIdField: 'clientId',
+                includeEmpty: true,
+                emptyLabel: 'Select Client'
+            });
+        }
+    }
+
     if (modal) {
         modal.classList.remove('hidden');
     }
