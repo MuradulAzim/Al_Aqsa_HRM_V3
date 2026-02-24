@@ -249,8 +249,8 @@
     </div>
 
     <script>
-        // Initialize date display on page load
-        document.getElementById('currentDateDisplay').textContent = currentDate;
+        // Initialize date display on page load (safe access)
+        document.getElementById('currentDateDisplay').textContent = (window.currentDate || '');
     </script>
 </body>
 </html>

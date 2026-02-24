@@ -194,13 +194,19 @@ async function populateClientDropdown(options) {
 }
 
 /**
- * Escape string for use in HTML attributes
- * @param {string} str
+ * Escape a value for safe use in HTML attributes / text content.
+ * Safely handles numbers, booleans, null, and undefined in addition to strings.
+ * @param {*} value
  * @returns {string}
  */
-function escapeAttr(str) {
-    if (!str) return '';
-    return str
+function escapeAttr(value) {
+    if (value == null) return '';          // null / undefined
+    if (typeof value !== 'string') {
+        _clDebug('escapeAttr: coercing non-string value', typeof value, value);
+        value = String(value);            // number, boolean, etc.
+    }
+    if (!value) return '';
+    return value
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;')
