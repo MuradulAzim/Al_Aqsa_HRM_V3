@@ -1,6 +1,14 @@
 /**
  * Al-Aqsa HRM Backend - Clients Handler
  * CRUD operations for client management
+ *
+ * Target schema (sheet headers, exact order):
+ *   id, companyName, contactPerson, phone, email, address, status,
+ *   name, contactRate, serviceStartDate, lastBillSubmitted,
+ *   billStatus, dueAmount, assignedEmployeeSalary, createdAt
+ *
+ * Canonical display name rule:
+ *   displayName = (companyName || name || '').trim()
  */
 
 /**
@@ -28,6 +36,10 @@ function handleGetClients(payload, sessionUser) {
 
 /**
  * Add or update client
+ *
+ * Accepts both companyName and legacy name fields.
+ * Ensures both columns are persisted to prevent column misalignment.
+ * Backward compat: never overwrites a non-empty value with empty.
  */
 function handleAddOrUpdateClient(payload, sessionUser) {
   // Use indexed lookup for existence check
@@ -41,38 +53,57 @@ function handleAddOrUpdateClient(payload, sessionUser) {
   }
   
   try {
-    // Accept both 'companyName' and legacy 'name' — canonical field is companyName
-    const resolvedName = (payload.companyName || payload.name || '').toString().trim();
+    // Accept both 'companyName' and legacy 'name'
+    var payloadCompanyName = (payload.companyName || '').toString().trim();
+    var payloadName = (payload.name || '').toString().trim();
 
-    // Validate required fields
-    if (!payload.id || !resolvedName) {
+    // Require at least one of companyName or name to be non-empty
+    if (!payload.id || (!payloadCompanyName && !payloadName)) {
       return {
         success: false,
         action: 'addOrUpdateClient',
         data: null,
-        message: 'Missing required fields: id, companyName'
+        message: 'Missing required fields: id and at least one of companyName or name'
       };
     }
+
+    // Resolve canonical values:
+    // If only one is provided, auto-fill the other
+    var resolvedCompanyName = payloadCompanyName || payloadName;
+    var resolvedName = payloadName || payloadCompanyName;
+
+    // Backward compat: if updating, never overwrite a non-empty value with empty
+    if (existing) {
+      var existingCompanyName = (existing.companyName || '').toString().trim();
+      var existingName = (existing.name || '').toString().trim();
+      if (!resolvedCompanyName && existingCompanyName) {
+        resolvedCompanyName = existingCompanyName;
+      }
+      if (!resolvedName && existingName) {
+        resolvedName = existingName;
+      }
+    }
     
-    // Prepare client data — canonical schema (matches sheet headers)
-    const clientData = {
+    // Prepare client data — full schema (matches sheet headers exactly)
+    var clientData = {
       id: payload.id,
-      companyName: resolvedName,
+      companyName: resolvedCompanyName,
       contactPerson: (payload.contactPerson || '').toString().trim(),
       phone: (payload.phone || '').toString().trim(),
       email: (payload.email || '').toString().trim(),
-      contactRate: parseNumber(payload.contactRate, 0),
       address: (payload.address || '').toString().trim(),
+      status: (payload.status || 'Active').toString().trim(),
+      name: resolvedName,
+      contactRate: parseNumber(payload.contactRate, 0),
       serviceStartDate: payload.serviceStartDate || '',
       lastBillSubmitted: payload.lastBillSubmitted || '',
       billStatus: payload.billStatus || '',
       dueAmount: parseNumber(payload.dueAmount, 0),
       assignedEmployeeSalary: parseNumber(payload.assignedEmployeeSalary, 0),
-      status: payload.status || 'Active',
       createdAt: payload.createdAt || ''
     };
     
-    // Add or update
+    // Add or update (upsertRecord maps by header keys — safe)
     upsertRecord(SHEETS.CLIENTS, payload.id, clientData);
     
     return {
@@ -96,6 +127,15 @@ function handleDeleteClient(payload, sessionUser) {
   }
   
   try {
+    if (!payload.id) {
+      return {
+        success: false,
+        action: 'deleteClient',
+        data: null,
+        message: 'Missing required field: id'
+      };
+    }
+
     const deleted = deleteRecord(SHEETS.CLIENTS, payload.id);
     
     if (!deleted) {

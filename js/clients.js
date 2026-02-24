@@ -11,6 +11,8 @@ let clients = [];
 // ============================================
 let clientsPaginationState = createPaginationState(10);
 let clientsFilteredData = [];
+let clientsSearchTerm = '';
+let clientsStatusFilter = 'all'; // 'all' | 'active' | 'inactive'
 
 // ============================================
 // REFRESH FUNCTION (EXPLICIT ONLY)
@@ -33,15 +35,71 @@ async function refreshClients() {
         } else {
             clients = [];
         }
-        renderClientsTable(clients);
+        applyClientFilters();
     } catch (error) {
         console.error("Failed to refresh clients:", error);
         clients = [];
-        renderClientsTable(clients);
+        applyClientFilters();
         if (typeof showToast === 'function') {
             showToast('Failed to load clients', 'error');
         }
     }
+}
+
+// ============================================
+// FILTERING & SEARCH
+// ============================================
+
+/**
+ * Apply search and status filters, then render
+ */
+function applyClientFilters() {
+    let filtered = clients.slice();
+
+    // Status filter (case-insensitive, trimmed)
+    if (clientsStatusFilter === 'active') {
+        filtered = filtered.filter(c => {
+            var s = (c.status || '').toString().trim().toLowerCase();
+            return s === '' || s === 'active';
+        });
+    } else if (clientsStatusFilter === 'inactive') {
+        filtered = filtered.filter(c => {
+            var s = (c.status || '').toString().trim().toLowerCase();
+            return s === 'inactive';
+        });
+    }
+
+    // Search filter (by displayName, id, contactPerson)
+    if (clientsSearchTerm) {
+        var term = clientsSearchTerm.toLowerCase();
+        filtered = filtered.filter(c => {
+            var displayName = getClientDisplayName(c).toLowerCase();
+            var id = (c.id || '').toString().toLowerCase();
+            var contact = (c.contactPerson || '').toString().toLowerCase();
+            var phone = (c.phone || '').toString().toLowerCase();
+            return displayName.includes(term) || id.includes(term) || contact.includes(term) || phone.includes(term);
+        });
+    }
+
+    renderClientsTable(filtered);
+}
+
+/**
+ * Handle search input
+ */
+function handleClientSearch() {
+    var input = document.getElementById('clientSearch');
+    clientsSearchTerm = input ? input.value.trim() : '';
+    applyClientFilters();
+}
+
+/**
+ * Handle status filter change
+ */
+function handleStatusFilter() {
+    var select = document.getElementById('clientStatusFilter');
+    clientsStatusFilter = select ? select.value : 'all';
+    applyClientFilters();
 }
 
 // ============================================
@@ -50,12 +108,13 @@ async function refreshClients() {
 
 /**
  * Render clients table from provided data
+ * Uses getClientDisplayName for canonical display name
  * @param {Array} data - Array of client objects
  */
 function renderClientsTable(data) {
     clientsFilteredData = (data || []).slice().sort((a, b) => {
-        const nameA = (a.companyName || '').toLowerCase();
-        const nameB = (b.companyName || '').toLowerCase();
+        const nameA = getClientDisplayName(a).toLowerCase();
+        const nameB = getClientDisplayName(b).toLowerCase();
         return nameA.localeCompare(nameB);
     });
     clientsPaginationState.currentPage = 1;
@@ -94,7 +153,7 @@ function renderPaginatedClientsTable() {
         <tr class="border-b border-gray-200 hover:bg-gray-50">
             <td class="px-4 py-3 text-sm text-gray-600">${displayIndex}</td>
             <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(client.id || '')}</td>
-            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(client.companyName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(getClientDisplayName(client))}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(client.contactPerson || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(client.phone || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${client.contactRate || ''}</td>
@@ -135,19 +194,18 @@ function renderPaginatedClientsTable() {
 }
 
 /**
- * Get CSS class for status badge
+ * Get CSS class for status badge (case-insensitive)
  * @param {string} status - Client status
  * @returns {string} CSS classes
  */
 function getStatusClass(status) {
-    switch (status) {
-        case 'Active':
-            return 'bg-green-100 text-green-800';
-        case 'Inactive':
-            return 'bg-gray-100 text-gray-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
+    var s = (status || '').toString().trim().toLowerCase();
+    if (s === 'active' || s === '') {
+        return 'bg-green-100 text-green-800';
+    } else if (s === 'inactive') {
+        return 'bg-gray-100 text-gray-800';
     }
+    return 'bg-gray-100 text-gray-800';
 }
 
 /**
@@ -236,9 +294,11 @@ async function handleSubmit(event) {
     const clientId = existingId || generateNextClientId();
 
     // Collect form data - NO calculations
+    const companyNameVal = String(form.companyName.value).trim();
     const payload = {
         id: String(clientId),
-        companyName: String(form.companyName.value).trim(),
+        companyName: companyNameVal,
+        name: companyNameVal, // Keep name synced with companyName for backward compat
         contactRate: form.contactRate.value ? Number(form.contactRate.value) : 0,
         contactPerson: String(form.contactPerson.value).trim(),
         phone: String(form.phone.value).trim(),
@@ -308,7 +368,7 @@ function viewClient(id) {
     const details = `
         <div class="space-y-2">
             <p><strong>Client ID:</strong> ${escapeHtml(client.id)}</p>
-            <p><strong>Company Name:</strong> ${escapeHtml(client.companyName)}</p>
+            <p><strong>Company Name:</strong> ${escapeHtml(getClientDisplayName(client))}</p>
             <p><strong>Contact Rate:</strong> ${client.contactRate}</p>
             <p><strong>Contact Person:</strong> ${escapeHtml(client.contactPerson)}</p>
             <p><strong>Phone:</strong> ${escapeHtml(client.phone)}</p>
@@ -371,7 +431,7 @@ function editClient(id) {
  */
 async function deleteClient(id) {
     const client = clients.find(c => String(c.id) === String(id));
-    const clientName = client ? client.companyName : 'this client';
+    const clientName = client ? getClientDisplayName(client) : 'this client';
     
     let confirmed = false;
     if (typeof confirmDelete === 'function') {
@@ -447,6 +507,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize UX enhancements
     if (typeof initFormValidation === 'function') initFormValidation('clientForm');
     if (typeof initModalAccessibility === 'function') initModalAccessibility('modal', closeModal);
+
+    // Set default status filter
+    clientsStatusFilter = 'active';
     
     // Initial load
     await refreshClients();

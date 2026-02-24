@@ -109,7 +109,7 @@ function renderPaginatedEscortTable() {
             <td class="px-4 py-3 text-sm text-gray-800 font-medium">${isOngoing ? '-' : (record.totalDays || 0)}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${record.conveyance || 0}</td>
             <td class="px-4 py-3 text-sm">
-                <span class="px-2 py-1 rounded-full text-xs ${record.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                <span class="px-2 py-1 rounded-full text-xs ${(record.status || '').toLowerCase() === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
                     ${escapeHtml(record.status || '')}
                 </span>
             </td>
@@ -146,8 +146,8 @@ function updateEscortSummary(data) {
     const totalRecords = data.length;
     const totalDays = data.reduce((sum, r) => r.endDate ? sum + (Number(r.totalDays) || 0) : sum, 0);
     const ongoingCount = data.filter(r => !r.endDate).length;
-    const activeCount = data.filter(r => r.status === 'Active').length;
-    const inactiveCount = data.filter(r => r.status === 'Inactive').length;
+    const activeCount = data.filter(r => (r.status || '').toLowerCase() === 'active').length;
+    const inactiveCount = data.filter(r => (r.status || '').toLowerCase() === 'inactive').length;
 
     setElementText('summaryTotalRecords', totalRecords);
     setElementText('summaryTotalDays', totalDays);
@@ -380,12 +380,18 @@ async function handleSubmit(event) {
         totalDays = calculateTotalDays(startDate, sShift, endDate, eShift);
     }
 
+    // Get client display name from selected option text (value is now client ID)
+    const clientSelect = form.clientName;
+    const clientDisplayName = clientSelect.selectedIndex >= 0
+        ? clientSelect.options[clientSelect.selectedIndex].text
+        : '';
+
     const payload = {
         id: id,
         employeeId: String(form.employeeId.value || '').trim(),
         employeeName: String(form.employeeName.value).trim(),
-        clientId: String(form.clientId.value || '').trim(),
-        clientName: String(form.clientName.value).trim(),
+        clientId: String(form.clientId.value || form.clientName.value || '').trim(),
+        clientName: clientDisplayName.trim(),
         vesselName: String(form.vesselName.value).trim(),
         lighterName: String(form.lighterName.value).trim(),
         startDate: startDate,
@@ -485,7 +491,24 @@ function editEscortRecord(id) {
     form.employeeId.value = record.employeeId || '';
     form.employeeName.value = record.employeeName || '';
     form.clientId.value = record.clientId || '';
-    form.clientName.value = record.clientName || '';
+    // Select option by clientId (option values are IDs, not names)
+    // Fall back to matching by option text for backward compat with old records
+    const cSelect = form.clientName;
+    let cMatched = false;
+    if (record.clientId) {
+        cSelect.value = record.clientId;
+        if (cSelect.value === record.clientId) cMatched = true;
+    }
+    if (!cMatched && record.clientName) {
+        for (let i = 0; i < cSelect.options.length; i++) {
+            if (cSelect.options[i].text === record.clientName) {
+                cSelect.selectedIndex = i;
+                cMatched = true;
+                break;
+            }
+        }
+    }
+    if (!cMatched) cSelect.value = '';
     form.vesselName.value = record.vesselName || '';
     form.lighterName.value = record.lighterName || '';
     form.startDate.value = record.startDate || '';

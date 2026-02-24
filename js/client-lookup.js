@@ -1,34 +1,47 @@
 // ============================================
-// CLIENT LOOKUP — Reusable Dropdown Population
+// CLIENT LOOKUP — Reusable Dropdown Population & Type-Ahead
 // ============================================
-// Shared component for populating <select> dropdowns with client names.
-// Used by Employee Management, Guard Duty, Day Labor, Escort Duty forms.
-// Fetches clients from the backend via existing getClients endpoint.
+// Shared component for client selection across all modules.
+// Provides:
+//   1. populateClientDropdown() — for <select> dropdowns (escort-duty, day-labor)
+//   2. initClientLookup()       — for type-ahead text inputs (guard-duty)
+//   3. preloadClientLookup()    — eagerly load client data
+//
+// Shared helpers (used everywhere):
+//   getClientDisplayName(client) — canonical display name
+//   isClientActive(client)       — robust active status check
+//   normalizeStatus(status)      — normalize status string
+//
+// Fetches clients via existing getClients endpoint.
 // NO permission logic — data comes from existing getClients action.
-// Canonical client name field: companyName (matches Google Sheet header).
 
 /**
  * Debug flag — set to true in browser console to enable logging:
- *   _CLIENT_LOOKUP_DEBUG = true;
+ *   window._CLIENT_LOOKUP_DEBUG = true;
  */
 var _CLIENT_LOOKUP_DEBUG = false;
 
 function _clDebug() {
-    if (_CLIENT_LOOKUP_DEBUG) {
+    if (window._CLIENT_LOOKUP_DEBUG || _CLIENT_LOOKUP_DEBUG) {
         console.log('[client-lookup]', ...arguments);
     }
 }
 
 /**
- * Cached client list for dropdown (fetched once per page load)
+ * Cached client list (fetched once per page load)
  * @type {Array}
  */
 let _lookupClients = [];
 let _lookupClientsLoaded = false;
 
+// ============================================
+// SHARED HELPERS — used by all modules
+// ============================================
+
 /**
- * Get the display name for a client object.
- * Prefers companyName, falls back to name.
+ * Get the canonical display name for a client object.
+ *   displayName = (companyName || name || '').trim()
+ *
  * @param {Object} client
  * @returns {string}
  */
@@ -38,7 +51,37 @@ function getClientDisplayName(client) {
 }
 
 /**
- * Fetch clients for dropdown (cached per page load)
+ * Normalize a status string for comparison.
+ * Trims whitespace and lowercases.
+ *
+ * @param {string} status
+ * @returns {string} normalized status (e.g. 'active', 'inactive', '')
+ */
+function normalizeStatus(status) {
+    return (status || '').toString().trim().toLowerCase();
+}
+
+/**
+ * Check if a client should be treated as active.
+ * Active if status is blank, empty, or any case/whitespace variation of "active".
+ *
+ * @param {Object} client
+ * @returns {boolean}
+ */
+function isClientActive(client) {
+    var s = normalizeStatus(client.status);
+    return s === '' || s === 'active';
+}
+
+// Keep legacy alias for backward compatibility within this file
+var _isClientActive = isClientActive;
+
+// ============================================
+// DATA FETCHING
+// ============================================
+
+/**
+ * Fetch clients for lookup/dropdown (cached per page load).
  * Reuses the existing 'getClients' backend action.
  * @returns {Promise<Array>} Array of client objects
  */
@@ -79,23 +122,20 @@ async function fetchLookupClients() {
     return _lookupClients;
 }
 
-/**
- * Check if a client should be treated as active (case-insensitive).
- * Active if status is missing, empty, or anything other than 'inactive'.
- * @param {Object} client
- * @returns {boolean}
- */
-function _isClientActive(client) {
-    const status = (client.status || '').toString().trim().toLowerCase();
-    return status !== 'inactive';
-}
+// ============================================
+// DROPDOWN POPULATION (legacy select support)
+// ============================================
 
 /**
  * Populate a <select> element with client names from the cached client list.
+ * Used by escort-duty.js and day-labor.js (and any other <select> based modules).
+ *
+ * Option value is the client ID (not name), display text is displayName.
+ * If hiddenIdField is provided, keeps it synced to select.value (which is client.id).
  *
  * @param {Object} options
  * @param {string} options.selectId       - ID of the <select> element to populate
- * @param {string} [options.hiddenIdField] - ID of a hidden input to auto-set with client ID on change (optional)
+ * @param {string} [options.hiddenIdField] - ID of a hidden input to auto-set with client ID on change
  * @param {boolean} [options.includeEmpty] - Whether to include an empty/default option (default: true)
  * @param {string} [options.emptyLabel]   - Label for the empty option (default: '-- Select Client --')
  */
@@ -120,9 +160,9 @@ async function populateClientDropdown(options) {
         optionsHtml += `<option value="">${emptyLabel}</option>`;
     }
 
-    // Sort clients alphabetically by name
+    // Sort clients alphabetically by display name, active only
     const sorted = [...clients]
-        .filter(c => _isClientActive(c))
+        .filter(c => isClientActive(c))
         .sort((a, b) => {
             const nameA = getClientDisplayName(a).toLowerCase();
             const nameB = getClientDisplayName(b).toLowerCase();
@@ -130,9 +170,9 @@ async function populateClientDropdown(options) {
         });
 
     for (const client of sorted) {
-        const name = getClientDisplayName(client);
+        const displayName = getClientDisplayName(client);
         const id = client.id || '';
-        optionsHtml += `<option value="${escapeAttr(name)}" data-client-id="${escapeAttr(id)}">${escapeAttr(name)}</option>`;
+        optionsHtml += `<option value="${escapeAttr(id)}">${escapeAttr(displayName)}</option>`;
     }
 
     select.innerHTML = optionsHtml;
@@ -141,9 +181,13 @@ async function populateClientDropdown(options) {
     if (hiddenIdField) {
         const hiddenInput = document.getElementById(hiddenIdField);
         if (hiddenInput) {
-            select.addEventListener('change', function () {
-                const selectedOption = select.options[select.selectedIndex];
-                hiddenInput.value = selectedOption ? (selectedOption.dataset.clientId || '') : '';
+            // Remove old listener if any (use replacement pattern)
+            const newSelect = select.cloneNode(true);
+            select.parentNode.replaceChild(newSelect, select);
+            newSelect.innerHTML = optionsHtml; // ensure options are there
+
+            newSelect.addEventListener('change', function () {
+                hiddenInput.value = newSelect.value || '';
             });
         }
     }
@@ -165,18 +209,17 @@ function escapeAttr(str) {
 }
 
 // ============================================
-// CLIENT LOOKUP — Reusable Type-Ahead
+// TYPE-AHEAD LOOKUP
 // ============================================
 // Same UX pattern as employee-lookup.js.
-// User types client name, sees suggestions, selects one.
-// Sets both visible name input and hidden ID input.
 // Dropdown is appended to document.body to avoid overflow clipping inside modals.
 
 /**
  * Initialize a client lookup (type-ahead) on a text input field.
  *
- * When the user types, a dropdown shows matching clients.
- * Selecting a client sets both the name and ID fields.
+ * When the user types, a dropdown shows matching active clients.
+ * Selecting a client sets both the visible name and hidden ID fields.
+ * Dropdown is positioned with position:fixed and high z-index to avoid modal clipping.
  *
  * @param {Object} options
  * @param {string} options.inputId       - ID of the text input for client name
@@ -237,14 +280,15 @@ function initClientLookup(options) {
     }
 
     /**
-     * Filter active clients by search term
+     * Filter active clients by search term (case-insensitive substring match)
+     * Matches by displayName and id.
      * @param {Array} clients
      * @param {string} term
      * @returns {Array}
      */
     function filterClients(clients, term) {
         return clients
-            .filter(c => _isClientActive(c))
+            .filter(c => isClientActive(c))
             .filter(c => {
                 const name = getClientDisplayName(c).toLowerCase();
                 const id = (c.id || '').toString().toLowerCase();
@@ -260,6 +304,7 @@ function initClientLookup(options) {
 
     // Input event — type-ahead search
     input.addEventListener('input', async function () {
+        // On manual typing after selection, clear hidden client id to prevent stale IDs
         selectedClient = null;
         if (hiddenInput) hiddenInput.value = '';
 
@@ -322,7 +367,7 @@ function initClientLookup(options) {
             if (!selectedClient && input.value.trim()) {
                 const term = input.value.trim().toLowerCase();
                 const exactMatch = _lookupClients
-                    .filter(c => _isClientActive(c))
+                    .filter(c => isClientActive(c))
                     .find(c =>
                         getClientDisplayName(c).toLowerCase() === term ||
                         (c.id || '').toString().toLowerCase() === term
@@ -334,7 +379,7 @@ function initClientLookup(options) {
                     input.value = '';
                     if (hiddenInput) hiddenInput.value = '';
                     if (typeof showToast === 'function') {
-                        showToast('Please select a client from the list', 'warning');
+                        showToast('Please select a valid client from the list.', 'warning');
                     }
                 }
             }
@@ -350,7 +395,7 @@ function initClientLookup(options) {
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
 
-    // Keyboard navigation
+    // Keyboard navigation (ArrowUp/Down, Enter, Escape)
     input.addEventListener('keydown', function (e) {
         const items = dropdown.querySelectorAll('.client-lookup-item');
         if (items.length === 0) return;

@@ -287,12 +287,18 @@ async function handleSubmit(event) {
     // Calculate amount = hoursWorked × rate
     const amount = hoursWorked * rate;
 
+    // Get client display name from selected option text (value is now client ID)
+    const clientSelect = form.clientName;
+    const clientDisplayName = clientSelect.selectedIndex >= 0
+        ? clientSelect.options[clientSelect.selectedIndex].text
+        : '';
+
     const payload = {
         id: id,
         employeeId: String(form.employeeId.value || '').trim(),
         employeeName: String(form.employeeName.value).trim(),
-        clientId: String(form.clientId.value || '').trim(),
-        clientName: String(form.clientName.value).trim(),
+        clientId: String(form.clientId.value || form.clientName.value || '').trim(),
+        clientName: clientDisplayName.trim(),
         date: String(form.date.value).trim(),
         hoursWorked: hoursWorked,
         rate: rate,

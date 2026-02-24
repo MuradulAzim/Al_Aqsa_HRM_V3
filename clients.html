@@ -11,6 +11,7 @@
     <script src="js/auth.js"></script>
     <script src="js/ux-utils.js"></script>
     <script src="js/pagination-utils.js"></script>
+    <script src="js/client-lookup.js"></script>
     <script src="js/clients.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -217,14 +218,34 @@
 
         <!-- Client List -->
         <div class="bg-white rounded-lg shadow-sm p-6">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
                 <h2 class="text-lg font-semibold text-gray-800">Client List</h2>
-                <button 
-                    onclick="refreshClients()"
-                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                    Refresh List
-                </button>
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Search -->
+                    <input
+                        type="text"
+                        id="clientSearch"
+                        placeholder="Search by name, ID, phone..."
+                        oninput="handleClientSearch()"
+                        class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm w-56"
+                    >
+                    <!-- Status Filter -->
+                    <select
+                        id="clientStatusFilter"
+                        onchange="handleStatusFilter()"
+                        class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active" selected>Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <button 
+                        onclick="refreshClients()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                        Refresh List
+                    </button>
+                </div>
             </div>
             
             <div class="overflow-x-auto">

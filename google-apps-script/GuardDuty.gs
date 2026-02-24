@@ -33,6 +33,9 @@ function handleGetGuardDuty(payload, sessionUser) {
 
 /**
  * Add guard duty record
+ *
+ * Required: id, employeeId, employeeName, clientId, clientName, date, shift, status
+ * Date must be valid YYYY-MM-DD
  */
 function handleAddGuardDuty(payload, sessionUser) {
   // Permission check
@@ -41,9 +44,9 @@ function handleAddGuardDuty(payload, sessionUser) {
   }
   
   try {
-    // Validate required fields
-    const requiredFields = ['id', 'date', 'employeeName'];
-    const validationError = validateRequired(payload, requiredFields);
+    // Validate required fields (strict — employeeId and clientId MUST be present)
+    var requiredFields = ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName'];
+    var validationError = validateRequired(payload, requiredFields);
     if (validationError) {
       return {
         success: false,
@@ -52,15 +55,26 @@ function handleAddGuardDuty(payload, sessionUser) {
         message: validationError
       };
     }
+
+    // Validate date format (YYYY-MM-DD)
+    var dateStr = String(payload.date).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return {
+        success: false,
+        action: 'addGuardDuty',
+        data: null,
+        message: 'Invalid date format. Expected YYYY-MM-DD.'
+      };
+    }
     
-    // Prepare record data (v3 schema — aligned with frontend)
-    const recordData = {
+    // Prepare record data (v3 schema — aligned with frontend and sheet headers)
+    var recordData = {
       id: payload.id,
-      date: payload.date,
-      employeeId: payload.employeeId || '',
-      employeeName: payload.employeeName,
-      clientId: payload.clientId || '',
-      clientName: payload.clientName || '',
+      date: dateStr,
+      employeeId: String(payload.employeeId).trim(),
+      employeeName: String(payload.employeeName).trim(),
+      clientId: String(payload.clientId).trim(),
+      clientName: String(payload.clientName).trim(),
       shift: payload.shift || 'Day',
       status: payload.status || 'Present',
       checkIn: payload.checkIn || '',
@@ -92,6 +106,15 @@ function handleDeleteGuardDuty(payload, sessionUser) {
   }
   
   try {
+    if (!payload.id) {
+      return {
+        success: false,
+        action: 'deleteGuardDuty',
+        data: null,
+        message: 'Missing required field: id'
+      };
+    }
+
     const deleted = deleteRecord(SHEETS.GUARD_DUTY, payload.id);
     
     if (!deleted) {
@@ -137,7 +160,10 @@ function handleGetDashboardStats(payload, sessionUser) {
     
     // Calculate employee stats
     const totalEmployees = employees.length;
-    const activeEmployees = employees.filter(e => e.status === 'Active').length;
+    const activeEmployees = employees.filter(e => {
+      var s = (e.status || '').toString().trim().toLowerCase();
+      return s === '' || s === 'active';
+    }).length;
     const inactiveEmployees = totalEmployees - activeEmployees;
     
     // Calculate guard duty stats for today

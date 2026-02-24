@@ -105,7 +105,7 @@ function renderPaginatedLoanTable() {
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.repaymentType || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${record.repaymentType === 'Monthly' ? (record.monthlyDeduct || 0) : '-'}</td>
             <td class="px-4 py-3 text-sm">
-                <span class="px-2 py-1 rounded-full text-xs ${record.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                <span class="px-2 py-1 rounded-full text-xs ${(record.status || '').toLowerCase() === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
                     ${escapeHtml(record.status || '')}
                 </span>
             </td>
@@ -139,7 +139,7 @@ function renderPaginatedLoanTable() {
 function updateLoanSummary(data) {
     const totalRecords = data.length;
     const totalAmount = data.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const activeCount = data.filter(r => r.status === 'Active').length;
+    const activeCount = data.filter(r => (r.status || '').toLowerCase() === 'active').length;
     const closedCount = data.filter(r => r.status === 'Closed').length;
 
     setElementText('summaryTotalRecords', totalRecords);

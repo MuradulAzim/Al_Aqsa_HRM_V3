@@ -85,7 +85,7 @@ function handleGenerateInvoice(payload, sessionUser) {
       e.clientName === clientName &&
       e.startDate <= periodEnd &&
       e.endDate >= periodStart &&
-      e.status === 'Active'
+      String(e.status || '').toLowerCase() === 'active'
     );
     const totalEscortDays = escortRecords.reduce((sum, e) => sum + parseNumber(e.totalDays, 0), 0);
     const escortAmount = totalEscortDays * contactRate;

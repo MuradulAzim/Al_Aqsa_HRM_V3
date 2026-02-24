@@ -222,13 +222,22 @@ async function handleSubmit(event) {
         : () => {};
 
     // Collect form data - ensure id and phone remain strings
+    // deployedAt select value is client ID; send the display name instead
+    const deployedAtSelect = form.deployedAt;
+    const deployedAtName = deployedAtSelect.selectedIndex >= 0
+        ? deployedAtSelect.options[deployedAtSelect.selectedIndex].text
+        : '';
+    // Treat the empty option label as empty
+    const deployedAtValue = (deployedAtName === 'Not Deployed' || !deployedAtSelect.value)
+        ? '' : deployedAtName.trim();
+
     const payload = {
         id: String(form.phone.value).trim(),  // Phone is employee ID
         name: String(form.name.value).trim(),
         phone: String(form.phone.value).trim(),
         role: String(form.role.value).trim(),
         salary: Number(form.salary.value) || 0,
-        deployedAt: String(form.deployedAt.value || '').trim(),
+        deployedAt: deployedAtValue,
         joinDate: String(form.joinDate.value).trim(),
         nid: String(form.nid.value).trim(),
         guardianName: String(form.guardianName.value).trim(),
@@ -325,7 +334,29 @@ function editEmployee(id) {
     form.phone.value = emp.phone || '';
     form.role.value = emp.role || '';
     form.salary.value = emp.salary || '';
-    form.deployedAt.value = emp.deployedAt || '';
+    // deployedAt: match by option text for backward compat (old records store name, options use ID values)
+    const daSelect = form.deployedAt;
+    let matched = false;
+    if (emp.deployedAt) {
+        // First try matching by value (client ID)
+        daSelect.value = emp.deployedAt;
+        if (daSelect.value === emp.deployedAt) {
+            matched = true;
+        }
+        // If no match, try matching by option display text (backward compat)
+        if (!matched) {
+            for (let i = 0; i < daSelect.options.length; i++) {
+                if (daSelect.options[i].text === emp.deployedAt) {
+                    daSelect.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (!matched) daSelect.value = '';
+    } else {
+        daSelect.value = '';
+    }
     form.joinDate.value = emp.joinDate || '';
     form.nid.value = emp.nid || '';
     form.guardianName.value = emp.guardianName || '';

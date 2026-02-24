@@ -144,7 +144,7 @@ function handleGenerateSalary(payload, sessionUser) {
       const eventKey = 'escort-' + escort.id;
       // Skip ongoing duties (no endDate) — salary is calculated only after duty completion
       if (!escort.endDate) return;
-      if (!processedEvents.includes(eventKey) && escort.status === 'Active') {
+      if (!processedEvents.includes(eventKey) && String(escort.status || '').toLowerCase() === 'active') {
         const totalDays = parseNumber(escort.totalDays, 0);
         const conveyance = parseNumber(escort.conveyance, 0);
         const earned = (dailyRate * totalDays) + conveyance;
@@ -181,7 +181,7 @@ function handleGenerateSalary(payload, sessionUser) {
     const loanAdvance = getSheetData(SHEETS.LOAN_ADVANCE);
     loanAdvance.forEach(loan => {
       const eventKey = 'loan-' + loan.id;
-      if (!processedEvents.includes(eventKey) && loan.status === 'Active') {
+      if (!processedEvents.includes(eventKey) && String(loan.status || '').toLowerCase() === 'active') {
         const deducted = parseNumber(loan.amount, 0);
         const employeeId = loan.employeeId || 'EMP-' + loan.employeeName;
         const prevBalance = employeeBalances[employeeId] || 0;
