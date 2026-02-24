@@ -8,11 +8,34 @@
 // Canonical client name field: companyName (matches Google Sheet header).
 
 /**
+ * Debug flag — set to true in browser console to enable logging:
+ *   _CLIENT_LOOKUP_DEBUG = true;
+ */
+var _CLIENT_LOOKUP_DEBUG = false;
+
+function _clDebug() {
+    if (_CLIENT_LOOKUP_DEBUG) {
+        console.log('[client-lookup]', ...arguments);
+    }
+}
+
+/**
  * Cached client list for dropdown (fetched once per page load)
  * @type {Array}
  */
 let _lookupClients = [];
 let _lookupClientsLoaded = false;
+
+/**
+ * Get the display name for a client object.
+ * Prefers companyName, falls back to name.
+ * @param {Object} client
+ * @returns {string}
+ */
+function getClientDisplayName(client) {
+    if (!client) return '';
+    return (client.companyName || client.name || '').toString().trim();
+}
 
 /**
  * Fetch clients for dropdown (cached per page load)
@@ -25,18 +48,46 @@ async function fetchLookupClients() {
     }
 
     try {
+        _clDebug('Fetching clients from backend...');
         const response = await request('getClients', {});
         if (response.success && Array.isArray(response.data)) {
             _lookupClients = response.data;
+            _clDebug('Fetched', _lookupClients.length, 'clients');
+            if (_lookupClients.length > 0) {
+                _clDebug('Sample client:', JSON.stringify(_lookupClients[0]));
+            }
         } else {
             _lookupClients = [];
+            console.warn('[client-lookup] getClients returned unexpected shape:', response);
         }
     } catch (error) {
-        console.error('Failed to fetch clients for lookup:', error);
+        console.error('[client-lookup] Failed to fetch clients:', error);
         _lookupClients = [];
+        if (typeof showToast === 'function') {
+            showToast('Failed to load client list — check permissions or network', 'error');
+        }
     }
     _lookupClientsLoaded = true;
+
+    if (_lookupClients.length === 0) {
+        console.warn('[client-lookup] No clients available after fetch');
+        if (typeof showToast === 'function') {
+            showToast('No clients available (check permissions or client list)', 'warning');
+        }
+    }
+
     return _lookupClients;
+}
+
+/**
+ * Check if a client should be treated as active (case-insensitive).
+ * Active if status is missing, empty, or anything other than 'inactive'.
+ * @param {Object} client
+ * @returns {boolean}
+ */
+function _isClientActive(client) {
+    const status = (client.status || '').toString().trim().toLowerCase();
+    return status !== 'inactive';
 }
 
 /**
@@ -71,15 +122,15 @@ async function populateClientDropdown(options) {
 
     // Sort clients alphabetically by name
     const sorted = [...clients]
-        .filter(c => (c.status || '').toLowerCase() !== 'inactive')
+        .filter(c => _isClientActive(c))
         .sort((a, b) => {
-            const nameA = (a.companyName || '').toLowerCase();
-            const nameB = (b.companyName || '').toLowerCase();
+            const nameA = getClientDisplayName(a).toLowerCase();
+            const nameB = getClientDisplayName(b).toLowerCase();
             return nameA.localeCompare(nameB);
         });
 
     for (const client of sorted) {
-        const name = client.companyName || '';
+        const name = getClientDisplayName(client);
         const id = client.id || '';
         optionsHtml += `<option value="${escapeAttr(name)}" data-client-id="${escapeAttr(id)}">${escapeAttr(name)}</option>`;
     }
@@ -119,6 +170,7 @@ function escapeAttr(str) {
 // Same UX pattern as employee-lookup.js.
 // User types client name, sees suggestions, selects one.
 // Sets both visible name input and hidden ID input.
+// Dropdown is appended to document.body to avoid overflow clipping inside modals.
 
 /**
  * Initialize a client lookup (type-ahead) on a text input field.
@@ -135,43 +187,72 @@ function initClientLookup(options) {
 
     const input = document.getElementById(inputId);
     const hiddenInput = document.getElementById(hiddenIdField);
-    if (!input) return;
+    if (!input) {
+        console.error('[client-lookup] initClientLookup: input #' + inputId + ' not found');
+        return;
+    }
+    _clDebug('initClientLookup() running for #' + inputId);
 
-    // Create dropdown container
-    const wrapper = input.parentElement;
-    wrapper.style.position = 'relative';
-
+    // Create dropdown container — append to body to avoid modal overflow clipping
     const dropdown = document.createElement('div');
     dropdown.id = inputId + '_client_lookup_dropdown';
     dropdown.className = 'client-lookup-dropdown';
     dropdown.setAttribute('role', 'listbox');
-    dropdown.style.cssText = 'display:none; position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #d1d5db; border-top:none; border-radius:0 0 0.5rem 0.5rem; z-index:100; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);';
-    wrapper.appendChild(dropdown);
+    dropdown.style.cssText = 'display:none; position:fixed; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #d1d5db; border-radius:0 0 0.5rem 0.5rem; z-index:9999; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);';
+    document.body.appendChild(dropdown);
 
     // Track selection state
     let selectedClient = null;
 
-    // Update aria-expanded
+    // Update aria attributes
     input.setAttribute('aria-expanded', 'false');
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-autocomplete', 'list');
 
     /**
+     * Position the dropdown below the input using getBoundingClientRect.
+     */
+    function positionDropdown() {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.top = rect.bottom + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+    }
+
+    /**
+     * Show the dropdown (with correct position).
+     */
+    function showDropdown() {
+        positionDropdown();
+        dropdown.style.display = 'block';
+        input.setAttribute('aria-expanded', 'true');
+    }
+
+    /**
+     * Hide the dropdown.
+     */
+    function hideDropdown() {
+        dropdown.style.display = 'none';
+        input.setAttribute('aria-expanded', 'false');
+    }
+
+    /**
      * Filter active clients by search term
+     * @param {Array} clients
      * @param {string} term
      * @returns {Array}
      */
     function filterClients(clients, term) {
         return clients
-            .filter(c => (c.status || '').toLowerCase() !== 'inactive')
+            .filter(c => _isClientActive(c))
             .filter(c => {
-                const name = (c.companyName || '').toLowerCase();
+                const name = getClientDisplayName(c).toLowerCase();
                 const id = (c.id || '').toString().toLowerCase();
                 return name.includes(term) || id.includes(term);
             })
             .sort((a, b) => {
-                const nameA = (a.companyName || '').toLowerCase();
-                const nameB = (b.companyName || '').toLowerCase();
+                const nameA = getClientDisplayName(a).toLowerCase();
+                const nameB = getClientDisplayName(b).toLowerCase();
                 return nameA.localeCompare(nameB);
             })
             .slice(0, 10);
@@ -184,23 +265,23 @@ function initClientLookup(options) {
 
         const term = input.value.trim().toLowerCase();
         if (term.length < 1) {
-            dropdown.style.display = 'none';
-            input.setAttribute('aria-expanded', 'false');
+            hideDropdown();
             return;
         }
 
         const clients = await fetchLookupClients();
         const matches = filterClients(clients, term);
 
+        _clDebug('Query "' + term + '" → ' + matches.length + ' matches (of ' + clients.length + ' total)');
+
         if (matches.length === 0) {
             dropdown.innerHTML = '<div role="option" style="padding:8px 12px; color:#9ca3af; font-size:0.875rem;">No clients found</div>';
-            dropdown.style.display = 'block';
-            input.setAttribute('aria-expanded', 'true');
+            showDropdown();
             return;
         }
 
         dropdown.innerHTML = matches.map((client, idx) => {
-            const displayName = client.companyName || '';
+            const displayName = getClientDisplayName(client);
             const displayId = client.id || '';
             return `<div class="client-lookup-item" role="option" data-index="${idx}"
                 style="padding:8px 12px; cursor:pointer; font-size:0.875rem; border-bottom:1px solid #f3f4f6;"
@@ -219,33 +300,31 @@ function initClientLookup(options) {
             });
         });
 
-        dropdown.style.display = 'block';
-        input.setAttribute('aria-expanded', 'true');
+        showDropdown();
     });
 
     // Select client helper
     function selectClient(client) {
         selectedClient = client;
-        input.value = client.companyName || '';
+        input.value = getClientDisplayName(client);
         if (hiddenInput) {
             hiddenInput.value = client.id || '';
         }
-        dropdown.style.display = 'none';
-        input.setAttribute('aria-expanded', 'false');
+        _clDebug('Selected client:', client.id, getClientDisplayName(client));
+        hideDropdown();
     }
 
     // Close dropdown on blur
     input.addEventListener('blur', function () {
         setTimeout(function () {
-            dropdown.style.display = 'none';
-            input.setAttribute('aria-expanded', 'false');
+            hideDropdown();
             // If user typed but didn't select, try exact match or clear
             if (!selectedClient && input.value.trim()) {
                 const term = input.value.trim().toLowerCase();
                 const exactMatch = _lookupClients
-                    .filter(c => (c.status || '').toLowerCase() !== 'inactive')
+                    .filter(c => _isClientActive(c))
                     .find(c =>
-                        (c.companyName || '').toLowerCase() === term ||
+                        getClientDisplayName(c).toLowerCase() === term ||
                         (c.id || '').toString().toLowerCase() === term
                     );
                 if (exactMatch) {
@@ -261,6 +340,15 @@ function initClientLookup(options) {
             }
         }, 200);
     });
+
+    // Reposition on scroll/resize (since dropdown is fixed position on body)
+    function onScrollOrResize() {
+        if (dropdown.style.display !== 'none') {
+            positionDropdown();
+        }
+    }
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
 
     // Keyboard navigation
     input.addEventListener('keydown', function (e) {
@@ -290,10 +378,11 @@ function initClientLookup(options) {
                 items[activeIndex].dispatchEvent(new Event('mousedown'));
             }
         } else if (e.key === 'Escape') {
-            dropdown.style.display = 'none';
-            input.setAttribute('aria-expanded', 'false');
+            hideDropdown();
         }
     });
+
+    _clDebug('initClientLookup() complete for #' + inputId);
 }
 
 /**

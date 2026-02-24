@@ -323,6 +323,34 @@ async function handleSubmit(event) {
     if (typeof validateForm === 'function' && !validateForm('dutyForm')) {
         return;
     }
+
+    // Validate that a client was selected from the lookup (not just typed)
+    const clientIdVal = String(form.clientId.value).trim();
+    const clientNameVal = String(form.clientName.value).trim();
+    if (clientNameVal && !clientIdVal) {
+        if (typeof showToast === 'function') {
+            showToast('Please select a valid client from the list.', 'warning');
+        }
+        form.clientName.focus();
+        return;
+    }
+    if (!clientIdVal) {
+        if (typeof showToast === 'function') {
+            showToast('Client is required. Type to search and select a client.', 'warning');
+        }
+        form.clientName.focus();
+        return;
+    }
+
+    // Validate that an employee was selected from the lookup
+    const employeeIdVal = String(form.employeeId.value).trim();
+    if (!employeeIdVal) {
+        if (typeof showToast === 'function') {
+            showToast('Please select a valid employee from the list.', 'warning');
+        }
+        form.employeeName.focus();
+        return;
+    }
     
     const submitBtn = form.querySelector('button[type="submit"]');
     const restoreBtn = typeof setButtonLoading === 'function' 
