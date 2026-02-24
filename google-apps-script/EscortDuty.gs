@@ -16,11 +16,23 @@ function handleGetEscortDuty(payload, sessionUser) {
     let records = getSheetData(SHEETS.ESCORT_DUTY);
     
     // Filter by date range if provided
+    // Normalize all dates: sheet may store Date objects via getValues()
     if (payload.startDate && payload.endDate) {
-      records = records.filter(r => {
-        return r.startDate <= payload.endDate && r.endDate >= payload.startDate;
+      var filterStart = normalizeDateValue(payload.startDate);
+      var filterEnd = normalizeDateValue(payload.endDate);
+      records = records.filter(function(r) {
+        var rStart = normalizeDateValue(r.startDate);
+        var rEnd = normalizeDateValue(r.endDate);
+        return rStart <= filterEnd && rEnd >= filterStart;
       });
     }
+    
+    // Normalize date fields in returned records so frontend always gets strings
+    records = records.map(function(r) {
+      r.startDate = normalizeDateValue(r.startDate);
+      r.endDate = normalizeDateValue(r.endDate);
+      return r;
+    });
     
     return {
       success: true,

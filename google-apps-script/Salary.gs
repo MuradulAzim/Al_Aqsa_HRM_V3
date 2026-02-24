@@ -25,9 +25,21 @@ function handleGetSalaryLedger(payload, sessionUser) {
     }
     
     // Filter by month if provided
+    // Normalize: month column could be stored as Date object by Sheets
     if (payload.month) {
-      records = records.filter(e => e.month === payload.month);
+      var filterMonth = String(payload.month).trim();
+      records = records.filter(function(e) {
+        var m = normalizeDateValue(e.month);
+        // month column is YYYY-MM; normalizeDateValue may return YYYY-MM-DD for Date objects
+        return m.substring(0, 7) === filterMonth;
+      });
     }
+    
+    // Normalize date fields in returned records
+    records = records.map(function(r) {
+      r.date = normalizeDateValue(r.date);
+      return r;
+    });
     
     return {
       success: true,
@@ -83,13 +95,13 @@ function handleGenerateSalary(payload, sessionUser) {
           employeeName: duty.employeeName,
           sourceModule: 'Guard',
           sourceId: duty.id,
-          date: duty.date,
+          date: normalizeDateValue(duty.date),
           shiftOrHours: duty.shift,
           earnedAmount: earned,
           deductedAmount: 0,
           netChange: earned,
           runningBalance: newBalance,
-          month: duty.date ? duty.date.substring(0, 7) : getCurrentMonth(),
+          month: duty.date ? normalizeDateValue(duty.date).substring(0, 7) : getCurrentMonth(),
           createdAt: now
         };
         
@@ -119,13 +131,13 @@ function handleGenerateSalary(payload, sessionUser) {
           employeeName: labor.employeeName,
           sourceModule: 'DayLabor',
           sourceId: labor.id,
-          date: labor.date,
+          date: normalizeDateValue(labor.date),
           shiftOrHours: hours + ' hrs',
           earnedAmount: parseFloat(earned.toFixed(2)),
           deductedAmount: 0,
           netChange: parseFloat(earned.toFixed(2)),
           runningBalance: parseFloat(newBalance.toFixed(2)),
-          month: labor.date ? labor.date.substring(0, 7) : getCurrentMonth(),
+          month: labor.date ? normalizeDateValue(labor.date).substring(0, 7) : getCurrentMonth(),
           createdAt: now
         };
         
@@ -158,13 +170,13 @@ function handleGenerateSalary(payload, sessionUser) {
           employeeName: escort.employeeName,
           sourceModule: 'Escort',
           sourceId: escort.id,
-          date: escort.startDate,
+          date: normalizeDateValue(escort.startDate),
           shiftOrHours: totalDays + ' days',
           earnedAmount: parseFloat(earned.toFixed(2)),
           deductedAmount: 0,
           netChange: parseFloat(earned.toFixed(2)),
           runningBalance: parseFloat(newBalance.toFixed(2)),
-          month: escort.startDate ? escort.startDate.substring(0, 7) : getCurrentMonth(),
+          month: escort.startDate ? normalizeDateValue(escort.startDate).substring(0, 7) : getCurrentMonth(),
           createdAt: now
         };
         
@@ -193,13 +205,13 @@ function handleGenerateSalary(payload, sessionUser) {
           employeeName: loan.employeeName,
           sourceModule: 'LoanAdvance',
           sourceId: loan.id,
-          date: loan.issueDate,
+          date: normalizeDateValue(loan.issueDate),
           shiftOrHours: loan.type,
           earnedAmount: 0,
           deductedAmount: deducted,
           netChange: -deducted,
           runningBalance: parseFloat(newBalance.toFixed(2)),
-          month: loan.issueDate ? loan.issueDate.substring(0, 7) : getCurrentMonth(),
+          month: loan.issueDate ? normalizeDateValue(loan.issueDate).substring(0, 7) : getCurrentMonth(),
           createdAt: now
         };
         

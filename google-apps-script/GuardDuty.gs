@@ -16,9 +16,19 @@ function handleGetGuardDuty(payload, sessionUser) {
     let records = getSheetData(SHEETS.GUARD_DUTY);
     
     // Filter by date if provided
+    // Normalize both sides: sheet may store Date objects via getValues()
     if (payload.date) {
-      records = records.filter(r => r.date === payload.date);
+      var filterDate = normalizeDateValue(payload.date);
+      records = records.filter(function(r) {
+        return normalizeDateValue(r.date) === filterDate;
+      });
     }
+    
+    // Normalize date field in returned records so frontend always gets strings
+    records = records.map(function(r) {
+      r.date = normalizeDateValue(r.date);
+      return r;
+    });
     
     return {
       success: true,
@@ -155,8 +165,10 @@ function handleGetDashboardStats(payload, sessionUser) {
     const guardDuty = getSheetData(SHEETS.GUARD_DUTY);
     const fileUploads = getSheetData(SHEETS.FILE_UPLOADS);
     
-    // Filter today's duty
-    const todayDuty = guardDuty.filter(r => r.date === today);
+    // Filter today's duty (normalize: sheet may store Date objects)
+    const todayDuty = guardDuty.filter(function(r) {
+      return normalizeDateValue(r.date) === today;
+    });
     
     // Calculate employee stats
     const totalEmployees = employees.length;

@@ -34,13 +34,28 @@ function handleGetInvoices(payload, sessionUser) {
     }
     
     // Filter by date range
+    // Normalize all dates: sheet may store Date objects via getValues()
     if (payload.startDate) {
-      records = records.filter(i => i.periodEnd >= payload.startDate);
+      var filterStart = normalizeDateValue(payload.startDate);
+      records = records.filter(function(i) {
+        return normalizeDateValue(i.periodEnd) >= filterStart;
+      });
     }
     
     if (payload.endDate) {
-      records = records.filter(i => i.periodStart <= payload.endDate);
+      var filterEnd = normalizeDateValue(payload.endDate);
+      records = records.filter(function(i) {
+        return normalizeDateValue(i.periodStart) <= filterEnd;
+      });
     }
+    
+    // Normalize date fields in returned records so frontend always gets strings
+    records = records.map(function(r) {
+      r.periodStart = normalizeDateValue(r.periodStart);
+      r.periodEnd = normalizeDateValue(r.periodEnd);
+      r.invoiceDate = normalizeDateValue(r.invoiceDate);
+      return r;
+    });
     
     return {
       success: true,

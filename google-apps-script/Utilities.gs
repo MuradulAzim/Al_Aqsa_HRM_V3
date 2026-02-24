@@ -387,6 +387,30 @@ function upsertRecord(sheetName, id, record, idColumn = 'id') {
 // ============================================
 
 /**
+ * Normalize a date value to YYYY-MM-DD string.
+ * Handles: Date objects (from Sheets getValues()), strings, numbers.
+ * Returns empty string for falsy / unparseable values.
+ * @param {*} value - Raw cell value (Date object, string, etc.)
+ * @returns {string} Date in YYYY-MM-DD format, or ''
+ */
+function normalizeDateValue(value) {
+  if (!value && value !== 0) return '';
+  // Already a Date object (Google Sheets auto-converts date cells)
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  // String — trim and return if already YYYY-MM-DD
+  var s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Try to parse other date string formats
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return s; // Return as-is if nothing works
+}
+
+/**
  * Get today's date in ISO format (YYYY-MM-DD)
  */
 function getTodayISO() {
