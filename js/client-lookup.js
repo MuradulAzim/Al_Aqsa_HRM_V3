@@ -122,6 +122,21 @@ async function fetchLookupClients() {
     return _lookupClients;
 }
 
+/**
+ * Safely get the display name of the currently selected client from a <select>.
+ * Returns '' if no real client is selected (empty option or nothing).
+ *
+ * @param {HTMLSelectElement} selectEl - The select element
+ * @returns {string} Display name or ''
+ */
+function getSelectedClientDisplayName(selectEl) {
+    if (!selectEl || selectEl.selectedIndex < 0) return '';
+    const opt = selectEl.options[selectEl.selectedIndex];
+    // If the selected option has no value, it's the placeholder — return ''
+    if (!opt || !opt.value) return '';
+    return opt.text || '';
+}
+
 // ============================================
 // DROPDOWN POPULATION (legacy select support)
 // ============================================
@@ -175,20 +190,25 @@ async function populateClientDropdown(options) {
         optionsHtml += `<option value="${escapeAttr(id)}">${escapeAttr(displayName)}</option>`;
     }
 
+    // Populate the EXISTING <select> — NO cloneNode, NO replaceChild
     select.innerHTML = optionsHtml;
 
     // If a hidden ID field is specified, sync it on change
     if (hiddenIdField) {
         const hiddenInput = document.getElementById(hiddenIdField);
         if (hiddenInput) {
-            // Remove old listener if any (use replacement pattern)
-            const newSelect = select.cloneNode(true);
-            select.parentNode.replaceChild(newSelect, select);
-            newSelect.innerHTML = optionsHtml; // ensure options are there
+            // Attach change listener only once (tracked by data attribute)
+            if (!select.dataset.clientDropdownBound) {
+                select.addEventListener('change', function () {
+                    hiddenInput.value = select.value || '';
+                    _clDebug('dropdown change → hiddenId =', hiddenInput.value,
+                             'selectedText =', select.options[select.selectedIndex]?.text);
+                });
+                select.dataset.clientDropdownBound = '1';
+            }
 
-            newSelect.addEventListener('change', function () {
-                hiddenInput.value = newSelect.value || '';
-            });
+            // Initialize hidden field to current (empty) value
+            hiddenInput.value = select.value || '';
         }
     }
 }

@@ -223,13 +223,12 @@ async function handleSubmit(event) {
 
     // Collect form data - ensure id and phone remain strings
     // deployedAt select value is client ID; send the display name instead
-    const deployedAtSelect = form.deployedAt;
-    const deployedAtName = deployedAtSelect.selectedIndex >= 0
-        ? deployedAtSelect.options[deployedAtSelect.selectedIndex].text
-        : '';
-    // Treat the empty option label as empty
-    const deployedAtValue = (deployedAtName === 'Not Deployed' || !deployedAtSelect.value)
-        ? '' : deployedAtName.trim();
+    const deployedAtSelect = document.getElementById('deployedAt');
+    const deployedAtName = typeof getSelectedClientDisplayName === 'function'
+        ? getSelectedClientDisplayName(deployedAtSelect)
+        : (deployedAtSelect && deployedAtSelect.selectedIndex >= 0 && deployedAtSelect.value
+            ? (deployedAtSelect.options[deployedAtSelect.selectedIndex].text || '') : '');
+    const deployedAtValue = deployedAtName.trim();
 
     const payload = {
         id: String(form.phone.value).trim(),  // Phone is employee ID
@@ -251,6 +250,7 @@ async function handleSubmit(event) {
         if (response.success) {
             resetForm();
             await refreshEmployees();
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('employees');
             if (typeof showToast === 'function') {
                 showToast('Employee saved successfully', 'success');
             }
@@ -391,6 +391,7 @@ async function deleteEmployee(id) {
         const response = await request("deleteEmployee", { id: id });
         if (response.success) {
             await refreshEmployees();
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('employees');
             if (typeof showToast === 'function') {
                 showToast('Employee deleted successfully', 'success');
             }

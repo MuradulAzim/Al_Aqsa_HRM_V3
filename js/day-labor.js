@@ -287,17 +287,22 @@ async function handleSubmit(event) {
     // Calculate amount = hoursWorked × rate
     const amount = hoursWorked * rate;
 
-    // Get client display name from selected option text (value is now client ID)
-    const clientSelect = form.clientName;
-    const clientDisplayName = clientSelect.selectedIndex >= 0
-        ? clientSelect.options[clientSelect.selectedIndex].text
-        : '';
+    // Get client fields — select.value is the client ID; display name from option text
+    const clientSelect = document.getElementById('clientName');
+    const clientId = String((clientSelect ? clientSelect.value : '') || '').trim();
+    const clientDisplayName = typeof getSelectedClientDisplayName === 'function'
+        ? getSelectedClientDisplayName(clientSelect)
+        : (clientSelect && clientSelect.selectedIndex >= 0 && clientSelect.value
+            ? (clientSelect.options[clientSelect.selectedIndex].text || '') : '');
+    // Sync hidden clientId field
+    const hiddenClientId = document.getElementById('clientId');
+    if (hiddenClientId) hiddenClientId.value = clientId;
 
     const payload = {
         id: id,
         employeeId: String(form.employeeId.value || '').trim(),
         employeeName: String(form.employeeName.value).trim(),
-        clientId: String(form.clientId.value || form.clientName.value || '').trim(),
+        clientId: clientId,
         clientName: clientDisplayName.trim(),
         date: String(form.date.value).trim(),
         hoursWorked: hoursWorked,
@@ -306,11 +311,23 @@ async function handleSubmit(event) {
         notes: String(form.notes.value).trim()
     };
 
+    // Debug logging (enable with: window._DAY_LABOR_DEBUG = true)
+    if (window._DAY_LABOR_DEBUG) {
+        console.log('[day-labor] submit payload:', JSON.stringify(payload, null, 2));
+    }
+
     try {
         const response = await request("addDayLabor", payload);
+
+        if (window._DAY_LABOR_DEBUG) {
+            console.log('[day-labor] response:', JSON.stringify(response));
+        }
+
         if (response.success) {
             closeLaborModal();
             await refreshDayLabor(currentDate);
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('day-labor');
+            if (typeof refreshDashboard === 'function') refreshDashboard('day-labor');
             if (typeof showToast === 'function') {
                 showToast('Labor record saved successfully', 'success');
             }
@@ -354,6 +371,8 @@ async function deleteRecord(id) {
         const response = await request("deleteDayLabor", { id: id });
         if (response.success) {
             await refreshDayLabor(currentDate);
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('day-labor');
+            if (typeof refreshDashboard === 'function') refreshDashboard('day-labor');
             if (typeof showToast === 'function') {
                 showToast('Labor record deleted successfully', 'success');
             }

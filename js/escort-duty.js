@@ -380,17 +380,22 @@ async function handleSubmit(event) {
         totalDays = calculateTotalDays(startDate, sShift, endDate, eShift);
     }
 
-    // Get client display name from selected option text (value is now client ID)
-    const clientSelect = form.clientName;
-    const clientDisplayName = clientSelect.selectedIndex >= 0
-        ? clientSelect.options[clientSelect.selectedIndex].text
-        : '';
+    // Get client fields — select.value is the client ID; display name from option text
+    const clientSelect = document.getElementById('clientName');
+    const clientId = String((clientSelect ? clientSelect.value : '') || '').trim();
+    const clientDisplayName = typeof getSelectedClientDisplayName === 'function'
+        ? getSelectedClientDisplayName(clientSelect)
+        : (clientSelect && clientSelect.selectedIndex >= 0 && clientSelect.value
+            ? (clientSelect.options[clientSelect.selectedIndex].text || '') : '');
+    // Sync hidden clientId field
+    const hiddenClientId = document.getElementById('clientId');
+    if (hiddenClientId) hiddenClientId.value = clientId;
 
     const payload = {
         id: id,
         employeeId: String(form.employeeId.value || '').trim(),
         employeeName: String(form.employeeName.value).trim(),
-        clientId: String(form.clientId.value || form.clientName.value || '').trim(),
+        clientId: clientId,
         clientName: clientDisplayName.trim(),
         vesselName: String(form.vesselName.value).trim(),
         lighterName: String(form.lighterName.value).trim(),
@@ -405,12 +410,24 @@ async function handleSubmit(event) {
         notes: String(form.notes.value).trim()
     };
 
+    // Debug logging (enable with: window._ESCORT_DUTY_DEBUG = true)
+    if (window._ESCORT_DUTY_DEBUG) {
+        console.log('[escort-duty] submit payload:', JSON.stringify(payload, null, 2));
+    }
+
     try {
         const action = isEdit ? 'updateEscortDuty' : 'addEscortDuty';
         const response = await request(action, payload);
+
+        if (window._ESCORT_DUTY_DEBUG) {
+            console.log('[escort-duty] response:', JSON.stringify(response));
+        }
+
         if (response.success) {
             closeEscortModal();
             await refreshEscortDuty(currentRange);
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('escort-duty');
+            if (typeof refreshDashboard === 'function') refreshDashboard('escort-duty');
             if (typeof showToast === 'function') {
                 showToast(isEdit ? 'Escort record updated successfully' : 'Escort record saved successfully', 'success');
             }
@@ -602,6 +619,8 @@ async function deleteRecord(id) {
         const response = await request("deleteEscortDuty", { id: id });
         if (response.success) {
             await refreshEscortDuty(currentRange);
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('escort-duty');
+            if (typeof refreshDashboard === 'function') refreshDashboard('escort-duty');
             if (typeof showToast === 'function') {
                 showToast('Escort record deleted successfully', 'success');
             }

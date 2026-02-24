@@ -374,15 +374,23 @@ async function handleSubmit(event) {
         notes: String(form.notes.value).trim()
     };
 
+    // Debug logging (enable with: window._GUARD_DUTY_DEBUG = true)
+    if (window._GUARD_DUTY_DEBUG) {
+        console.log('[guard-duty] submit payload:', JSON.stringify(payload, null, 2));
+    }
+
     try {
         const response = await request("addGuardDuty", payload);
+
+        if (window._GUARD_DUTY_DEBUG) {
+            console.log('[guard-duty] response:', JSON.stringify(response));
+        }
+
         if (response.success) {
             closeDutyModal();
             await refreshGuardDuty(currentDate);
-            // Optional dashboard sync (guarded)
-            if (typeof refreshDashboard === "function") {
-                refreshDashboard("guard-duty");
-            }
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('guard-duty');
+            if (typeof refreshDashboard === 'function') refreshDashboard('guard-duty');
             if (typeof showToast === 'function') {
                 showToast('Duty record saved successfully', 'success');
             }
@@ -427,9 +435,8 @@ async function deleteRecord(id) {
         if (response.success) {
             await refreshGuardDuty(currentDate);
             // Optional dashboard sync (guarded)
-            if (typeof refreshDashboard === "function") {
-                refreshDashboard("guard-duty");
-            }
+            if (typeof markDashboardDirty === 'function') markDashboardDirty('guard-duty');
+            if (typeof refreshDashboard === 'function') refreshDashboard('guard-duty');
             if (typeof showToast === 'function') {
                 showToast('Duty record deleted successfully', 'success');
             }

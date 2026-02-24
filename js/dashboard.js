@@ -64,3 +64,37 @@ function setStatValue(elementId, value) {
         element.textContent = value;
     }
 }
+
+// ============================================
+// CROSS-TAB DIRTY FLAG LISTENER
+// ============================================
+// When another tab calls markDashboardDirty(), the 'storage' event fires here.
+// We auto-refresh the dashboard so the user sees up-to-date stats.
+window.addEventListener('storage', function (e) {
+    if (e.key !== 'dashboardDirty' || !e.newValue) return;
+    try {
+        const info = JSON.parse(e.newValue);
+        console.log('[dashboard] cross-tab dirty flag from:', info.source);
+        refreshDashboard('cross-tab:' + (info.source || 'unknown'));
+    } catch (err) {
+        // Malformed value — ignore
+    }
+});
+
+// Also check on page load in case the flag was set while no dashboard tab existed
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        const raw = localStorage.getItem('dashboardDirty');
+        if (raw) {
+            const info = JSON.parse(raw);
+            // Only act if the flag is less than 1 minute old
+            if (Date.now() - (info.ts || 0) < 60000) {
+                console.log('[dashboard] stale dirty flag on load from:', info.source);
+                refreshDashboard('stale-flag:' + (info.source || 'unknown'));
+            }
+            localStorage.removeItem('dashboardDirty');
+        }
+    } catch (e) {
+        // ignore
+    }
+});
