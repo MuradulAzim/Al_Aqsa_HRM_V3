@@ -239,3 +239,181 @@ function handleGenerateSalary(payload, sessionUser) {
     return sanitizedError('generateSalary', error);
   }
 }
+
+/**
+ * Get employee payroll summary for a given month.
+ * Computes salary breakdown from raw duty records (not from salary ledger).
+ *
+ * Formula:
+ *   dailyRate = salary / totalDaysInMonth
+ *   gross = dailyRate * totalWorkingDays + conveyance
+ *   net = gross - totalLoanAdvance
+ *
+ * Working day rules:
+ *   Guard: unique (date, shift) pairs where status is Present or Late
+ *   Day Labor: 9 hours = 1 working day; overtimeHours = max(0, totalHours - 9*workingDays)
+ *   Escort: only completed programs (endDate filled); each calendar day in month = working day
+ *
+ * payload: { employeeId, month (YYYY-MM) }
+ */
+function handleGetEmployeePayrollSummary(payload, sessionUser) {
+  if (!checkPermission(sessionUser.role, 'Salary', 'canView')) {
+    return unauthorizedResponse('getEmployeePayrollSummary');
+  }
+  try {
+    var empId = String(payload.employeeId || '').trim();
+    var month = String(payload.month || '').trim(); // YYYY-MM
+    if (!empId || !month) {
+      return { success: false, action: 'getEmployeePayrollSummary', data: null, message: 'employeeId and month are required' };
+    }
+
+    // Fetch employee record to get salary
+    var employees = getSheetData(SHEETS.EMPLOYEES);
+    var employee = null;
+    for (var ei = 0; ei < employees.length; ei++) {
+      if (String(employees[ei].id) === empId) { employee = employees[ei]; break; }
+    }
+    if (!employee) {
+      return { success: false, action: 'getEmployeePayrollSummary', data: null, message: 'Employee not found' };
+    }
+
+    var salary = parseNumber(employee.salary, 0);
+    // Total calendar days in the requested month
+    var yearNum = parseInt(month.split('-')[0], 10);
+    var monthNum = parseInt(month.split('-')[1], 10);
+    var totalDaysInMonth = new Date(yearNum, monthNum, 0).getDate();
+    var dailyRate = totalDaysInMonth > 0 ? salary / totalDaysInMonth : 0;
+
+    // ---- Guard Duty ----
+    var guardData = getSheetData(SHEETS.GUARD_DUTY);
+    var guardForEmp = guardData.filter(function(r) {
+      return String(r.employeeId) === empId && normalizeDateValue(r.date).substring(0, 7) === month;
+    });
+    var presentDays = 0, absentDays = 0, lateDays = 0;
+    // Track unique date+shift combinations worked
+    var guardShiftSet = {};
+    guardForEmp.forEach(function(r) {
+      var s = (r.status || '').toLowerCase();
+      if (s === 'present' || s === 'late') {
+        var key = normalizeDateValue(r.date) + '_' + (r.shift || 'Day');
+        guardShiftSet[key] = true;
+        if (s === 'late') lateDays++;
+      } else {
+        absentDays++;
+      }
+    });
+    // Working days = unique (date, shift) pairs where present or late
+    var guardWorkingDays = Object.keys(guardShiftSet).length;
+    presentDays = guardWorkingDays; // present includes late
+    // Overtime: > 1 shift per unique date
+    var guardDateCounts = {};
+    Object.keys(guardShiftSet).forEach(function(key) {
+      var d = key.split('_')[0];
+      guardDateCounts[d] = (guardDateCounts[d] || 0) + 1;
+    });
+    var overtimeShifts = 0;
+    Object.keys(guardDateCounts).forEach(function(d) {
+      if (guardDateCounts[d] > 1) overtimeShifts += guardDateCounts[d] - 1;
+    });
+
+    // ---- Escort Duty (completed programs only — endDate must be filled) ----
+    var escortData = getSheetData(SHEETS.ESCORT_DUTY);
+    var escortWorkingDays = 0, escortConveyance = 0, escortCompletedPrograms = 0;
+    escortData.forEach(function(r) {
+      if (String(r.employeeId) !== empId) return;
+      if (String(r.status || '').toLowerCase() !== 'active') return;
+      // Only completed programs (endDate is filled)
+      if (!r.endDate) return;
+      var rStart = normalizeDateValue(r.startDate);
+      var rEnd = normalizeDateValue(r.endDate);
+      if (!rStart || !rEnd) return;
+      // Check if this program overlaps with the requested month
+      var monthStart = month + '-01';
+      var monthEnd = month + '-' + String(totalDaysInMonth).padStart(2, '0');
+      if (rEnd < monthStart || rStart > monthEnd) return; // no overlap
+      escortCompletedPrograms++;
+      // Count calendar days within the month for this program
+      var effectiveStart = rStart > monthStart ? rStart : monthStart;
+      var effectiveEnd = rEnd < monthEnd ? rEnd : monthEnd;
+      var curDate = new Date(effectiveStart + 'T00:00:00');
+      var endDate = new Date(effectiveEnd + 'T00:00:00');
+      var daysInRange = 0;
+      while (curDate <= endDate) {
+        daysInRange++;
+        curDate.setDate(curDate.getDate() + 1);
+      }
+      escortWorkingDays += daysInRange;
+      escortConveyance += parseNumber(r.conveyance, 0);
+    });
+
+    // ---- Day Labor ----
+    var laborData = getSheetData(SHEETS.DAY_LABOR);
+    var laborRecords = laborData.filter(function(r) {
+      return String(r.employeeId) === empId && normalizeDateValue(r.date).substring(0, 7) === month;
+    });
+    var laborTotalHours = 0;
+    var laborUniqueShifts = {};
+    laborRecords.forEach(function(r) {
+      laborTotalHours += parseNumber(r.hoursWorked, 0);
+      var shiftKey = normalizeDateValue(r.date) + '_' + (r.shift || 'Day');
+      laborUniqueShifts[shiftKey] = true;
+    });
+    var laborShiftCount = Object.keys(laborUniqueShifts).length;
+    // 9 hours = 1 working day
+    var laborWorkingDays = Math.floor(laborTotalHours / 9);
+    var laborOvertimeHours = Math.max(0, laborTotalHours - (laborWorkingDays * 9));
+
+    // ---- Total Working Days across all modules ----
+    var totalWorkingDays = guardWorkingDays + escortWorkingDays + laborWorkingDays;
+
+    // ---- Loans (Active only — total deduction) ----
+    var loanData = getSheetData(SHEETS.LOAN_ADVANCE);
+    var activeLoans = loanData.filter(function(r) {
+      return String(r.employeeId) === empId && String(r.status || '').toLowerCase() === 'active';
+    });
+    var totalLoanAdvance = activeLoans.reduce(function(sum, r) { return sum + parseNumber(r.amount, 0); }, 0);
+
+    // ---- Final payroll computation ----
+    var gross = (dailyRate * totalWorkingDays) + escortConveyance;
+    var net = gross - totalLoanAdvance;
+
+    var summary = {
+      employeeId: empId,
+      employeeName: employee.name || '',
+      month: month,
+      salary: salary,
+      totalDaysInMonth: totalDaysInMonth,
+      dailyRate: parseFloat(dailyRate.toFixed(2)),
+      totalWorkingDays: totalWorkingDays,
+      guardDuty: {
+        presentDays: presentDays,
+        absentDays: absentDays,
+        lateDays: lateDays,
+        workingDays: guardWorkingDays,
+        overtimeShifts: overtimeShifts
+      },
+      escortDuty: {
+        completedPrograms: escortCompletedPrograms,
+        workingDays: escortWorkingDays,
+        conveyance: escortConveyance
+      },
+      dayLabor: {
+        totalHours: laborTotalHours,
+        workingDays: laborWorkingDays,
+        overtimeHours: laborOvertimeHours,
+        shiftCount: laborShiftCount
+      },
+      loans: {
+        activeCount: activeLoans.length,
+        totalDeduction: totalLoanAdvance
+      },
+      gross: parseFloat(gross.toFixed(2)),
+      totalDeductions: totalLoanAdvance,
+      net: parseFloat(net.toFixed(2))
+    };
+
+    return { success: true, action: 'getEmployeePayrollSummary', data: summary, message: 'Payroll summary retrieved' };
+  } catch (error) {
+    return sanitizedError('getEmployeePayrollSummary', error);
+  }
+}

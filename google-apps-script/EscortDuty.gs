@@ -67,6 +67,19 @@ function handleAddEscortDuty(payload, sessionUser) {
       };
     }
     
+    // Cross-duty conflict validation — escort blocks all dates in range (both shifts)
+    var escortDates = expandDateRange(normalizeDateValue(payload.startDate), payload.endDate ? normalizeDateValue(payload.endDate) : '');
+    var conflictCheck = validateEmployeeDutyConflict({
+      employeeId: payload.employeeId || '',
+      dates: escortDates,
+      shifts: ['Day', 'Night'],
+      sourceModule: 'EscortDuty'
+    });
+    if (conflictCheck.conflict) {
+      logActivity({ sessionUser: sessionUser, action: 'VALIDATION_REJECTED', module: 'EscortDuty', recordId: payload.id, summary: 'Conflict: ' + conflictCheck.message, date: normalizeDateValue(payload.startDate), employeeId: payload.employeeId || '', clientId: payload.clientId || '', success: false, message: conflictCheck.message });
+      return { success: false, action: 'addEscortDuty', data: null, message: conflictCheck.message };
+    }
+
     // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
@@ -90,6 +103,9 @@ function handleAddEscortDuty(payload, sessionUser) {
     // Add record
     addRecord(SHEETS.ESCORT_DUTY, recordData);
     
+    // Activity logging
+    logActivity({ sessionUser: sessionUser, action: 'addEscortDuty', module: 'EscortDuty', recordId: recordData.id, summary: recordData.employeeName + ' escort ' + recordData.startDate + ' – ' + (recordData.endDate || 'ongoing'), date: recordData.startDate, employeeId: recordData.employeeId, clientId: recordData.clientId, success: true });
+
     return {
       success: true,
       action: 'addEscortDuty',
@@ -113,6 +129,10 @@ function handleDeleteEscortDuty(payload, sessionUser) {
   try {
     const deleted = deleteRecord(SHEETS.ESCORT_DUTY, payload.id);
     
+    if (deleted) {
+      logActivity({ sessionUser: sessionUser, action: 'deleteEscortDuty', module: 'EscortDuty', recordId: payload.id, summary: 'Deleted escort duty ' + payload.id });
+    }
+
     if (!deleted) {
       return {
         success: false,
@@ -167,6 +187,20 @@ function handleUpdateEscortDuty(payload, sessionUser) {
       };
     }
     
+    // Cross-duty conflict validation on update — escort blocks all dates in range
+    var updEscortDates = expandDateRange(normalizeDateValue(payload.startDate), payload.endDate ? normalizeDateValue(payload.endDate) : '');
+    var updConflict = validateEmployeeDutyConflict({
+      employeeId: payload.employeeId || existing.employeeId || '',
+      dates: updEscortDates,
+      shifts: ['Day', 'Night'],
+      sourceModule: 'EscortDuty',
+      excludeId: payload.id
+    });
+    if (updConflict.conflict) {
+      logActivity({ sessionUser: sessionUser, action: 'VALIDATION_REJECTED', module: 'EscortDuty', recordId: payload.id, summary: 'Update conflict: ' + updConflict.message, date: normalizeDateValue(payload.startDate), employeeId: payload.employeeId || existing.employeeId || '', clientId: payload.clientId || existing.clientId || '', success: false, message: updConflict.message });
+      return { success: false, action: 'updateEscortDuty', data: null, message: updConflict.message };
+    }
+
     // Prepare updated record data
     const recordData = {
       id: payload.id,
@@ -190,6 +224,9 @@ function handleUpdateEscortDuty(payload, sessionUser) {
     // Update record
     updateRecord(SHEETS.ESCORT_DUTY, payload.id, recordData);
     
+    // Activity logging
+    logActivity({ sessionUser: sessionUser, action: 'updateEscortDuty', module: 'EscortDuty', recordId: recordData.id, summary: recordData.employeeName + ' escort updated ' + recordData.startDate + ' – ' + (recordData.endDate || 'ongoing'), date: recordData.startDate, employeeId: recordData.employeeId, clientId: recordData.clientId, success: true });
+
     return {
       success: true,
       action: 'updateEscortDuty',

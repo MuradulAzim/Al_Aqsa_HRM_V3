@@ -11,6 +11,7 @@
     <script src="js/auth.js"></script>
     <script src="js/ux-utils.js"></script>
     <script src="js/pagination-utils.js"></script>
+    <script src="js/group-utils.js"></script>
     <script src="js/employee-lookup.js"></script>
     <script src="js/client-lookup.js"></script>
     <script src="js/guard-duty.js"></script>
@@ -101,12 +102,20 @@
         <div class="bg-white rounded-lg shadow-sm p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-semibold text-gray-800">Duty Records</h2>
-                <button 
-                    onclick="openAddDutyModal()"
-                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                    + Add Duty
-                </button>
+                <div class="flex items-center gap-2">
+                    <div class="flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+                        <button id="btnFlatView" onclick="setDutyViewMode('flat')" class="px-3 py-1.5 bg-blue-600 text-white font-medium">Flat</button>
+                        <button id="btnGroupedView" onclick="setDutyViewMode('grouped')" class="px-3 py-1.5 bg-white text-gray-600 hover:bg-gray-50 font-medium">Grouped</button>
+                    </div>
+                    <button id="btnExpandAll" onclick="toggleAllGroups('dutyTableBody', true)" class="hidden px-2 py-1.5 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">Expand All</button>
+                    <button id="btnCollapseAll" onclick="toggleAllGroups('dutyTableBody', false)" class="hidden px-2 py-1.5 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">Collapse All</button>
+                    <button 
+                        onclick="openAddDutyModal()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                        + Add Duty
+                    </button>
+                </div>
             </div>
             
             <div class="overflow-x-auto">

@@ -63,6 +63,19 @@ function handleAddDayLabor(payload, sessionUser) {
       };
     }
     
+    // Cross-duty conflict validation (day labor blocks only the selected shift)
+    var selectedShift = payload.shift || 'Day';
+    var conflictCheck = validateEmployeeDutyConflict({
+      employeeId: payload.employeeId || '',
+      dates: [normalizeDateValue(payload.date)],
+      shifts: [selectedShift],
+      sourceModule: 'DayLabor'
+    });
+    if (conflictCheck.conflict) {
+      logActivity({ sessionUser: sessionUser, action: 'VALIDATION_REJECTED', module: 'DayLabor', recordId: payload.id, summary: 'Conflict: ' + conflictCheck.message, date: normalizeDateValue(payload.date), employeeId: payload.employeeId || '', clientId: payload.clientId || '', success: false, message: conflictCheck.message });
+      return { success: false, action: 'addDayLabor', data: null, message: conflictCheck.message };
+    }
+
     // Prepare record data (v3 schema — aligned with frontend)
     const recordData = {
       id: payload.id,
@@ -71,6 +84,7 @@ function handleAddDayLabor(payload, sessionUser) {
       employeeName: payload.employeeName,
       clientId: payload.clientId || '',
       clientName: payload.clientName || '',
+      shift: selectedShift,
       hoursWorked: parseNumber(payload.hoursWorked, 0),
       rate: parseNumber(payload.rate, 0),
       amount: parseNumber(payload.amount, 0),
@@ -80,6 +94,9 @@ function handleAddDayLabor(payload, sessionUser) {
     // Add record
     addRecord(SHEETS.DAY_LABOR, recordData);
     
+    // Activity logging
+    logActivity({ sessionUser: sessionUser, action: 'addDayLabor', module: 'DayLabor', recordId: recordData.id, summary: recordData.employeeName + ' day labor ' + recordData.date, date: recordData.date, employeeId: recordData.employeeId, clientId: recordData.clientId, success: true });
+
     return {
       success: true,
       action: 'addDayLabor',
@@ -103,6 +120,10 @@ function handleDeleteDayLabor(payload, sessionUser) {
   try {
     const deleted = deleteRecord(SHEETS.DAY_LABOR, payload.id);
     
+    if (deleted) {
+      logActivity({ sessionUser: sessionUser, action: 'deleteDayLabor', module: 'DayLabor', recordId: payload.id, summary: 'Deleted day labor ' + payload.id });
+    }
+
     if (!deleted) {
       return {
         success: false,

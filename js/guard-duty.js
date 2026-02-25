@@ -12,6 +12,7 @@ let currentDate = getTodayISO();
 // ============================================
 let dutyPaginationState = createPaginationState(10);
 let dutyFilteredData = [];
+let dutyViewMode = 'flat'; // 'flat' or 'grouped'
 
 // ============================================
 // REFRESH FUNCTION (EXPLICIT ONLY)
@@ -62,7 +63,11 @@ async function refreshGuardDuty(date) {
 function renderDutyTable(data) {
     dutyFilteredData = data || [];
     dutyPaginationState.currentPage = 1;
-    renderPaginatedDutyTable();
+    if (dutyViewMode === 'grouped') {
+        renderGroupedDutyTable();
+    } else {
+        renderPaginatedDutyTable();
+    }
 }
 
 /**
@@ -133,6 +138,68 @@ function renderPaginatedDutyTable() {
             renderPaginatedDutyTable();
         }
     });
+}
+
+/**
+ * Render grouped duty table — grouped by notes (location/site)
+ * All groups expanded by default.
+ */
+function renderGroupedDutyTable() {
+    renderGroupedTable({
+        tbodyId: 'dutyTableBody',
+        paginationId: 'dutyPagination',
+        data: dutyFilteredData,
+        colSpan: 10,
+        emptyMessage: 'No duty records found for this date. Add a record using the button above.',
+        emptyIcon: 'fa-clipboard-list',
+        groupKeyFn: function(r) { return normalizeGroupKey(r.notes); },
+        groupSummaryFn: function(key, items) {
+            var present = items.filter(function(r) { return r.status === 'Present'; }).length;
+            var absent = items.filter(function(r) { return r.status === 'Absent'; }).length;
+            var late = items.filter(function(r) { return r.status === 'Late'; }).length;
+            var day = items.filter(function(r) { return r.shift === 'Day'; }).length;
+            var night = items.filter(function(r) { return r.shift === 'Night'; }).length;
+            return 'Day: ' + day + ' | Night: ' + night + ' | Present: ' + present + ' | Absent: ' + absent + ' | Late: ' + late;
+        },
+        renderRowFn: function(record, idx) {
+            return '<td class="px-4 py-3 text-sm text-gray-600">' + idx + '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-800">' + escapeHtml(record.employeeName || '') + '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + escapeHtml(record.clientName || record.clientId || '') + '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + escapeHtml(record.date || '') + '</td>' +
+                '<td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full ' + getShiftClass(record.shift) + '">' + escapeHtml(record.shift || '') + '</span></td>' +
+                '<td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full ' + getStatusClass(record.status) + '">' + escapeHtml(record.status || '') + '</span></td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + escapeHtml(record.checkIn || '-') + '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + escapeHtml(record.checkOut || '-') + '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + escapeHtml(record.notes || '-') + '</td>' +
+                '<td class="px-4 py-3 text-sm"><button onclick="deleteRecord(\'' + record.id + '\')" class="text-red-600 hover:text-red-800">Delete</button></td>';
+        }
+    });
+}
+
+/**
+ * Switch between flat and grouped view modes
+ * @param {string} mode - 'flat' or 'grouped'
+ */
+function setDutyViewMode(mode) {
+    dutyViewMode = mode;
+    // Update button styles
+    var btnFlat = document.getElementById('btnFlatView');
+    var btnGrouped = document.getElementById('btnGroupedView');
+    var btnExpand = document.getElementById('btnExpandAll');
+    var btnCollapse = document.getElementById('btnCollapseAll');
+    if (btnFlat && btnGrouped) {
+        if (mode === 'flat') {
+            btnFlat.className = 'px-3 py-1.5 bg-blue-600 text-white font-medium';
+            btnGrouped.className = 'px-3 py-1.5 bg-white text-gray-600 hover:bg-gray-50 font-medium';
+        } else {
+            btnFlat.className = 'px-3 py-1.5 bg-white text-gray-600 hover:bg-gray-50 font-medium';
+            btnGrouped.className = 'px-3 py-1.5 bg-blue-600 text-white font-medium';
+        }
+    }
+    if (btnExpand) btnExpand.classList.toggle('hidden', mode === 'flat');
+    if (btnCollapse) btnCollapse.classList.toggle('hidden', mode === 'flat');
+    // Re-render
+    renderDutyTable(dutyFilteredData);
 }
 
 /**

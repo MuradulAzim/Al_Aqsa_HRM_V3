@@ -105,7 +105,8 @@ const SHEETS = {
   JOB_POSTS: 'jobPosts',
   JOB_APPLICATIONS: 'jobApplications',
   PERMISSIONS: 'permissions',
-  SESSIONS: 'sessions'
+  SESSIONS: 'sessions',
+  ACTIVITY_LOGS: 'activityLogs'
 };
 
 // ============================================
@@ -209,6 +210,7 @@ const ACTION_PERMISSIONS = {
   // Salary
   getSalaryLedger:         { module: 'Salary', permission: 'canView' },
   generateSalary:          { module: 'Salary', permission: 'canAdd' },
+  getEmployeePayrollSummary: { module: 'Salary', permission: 'canView' },
   // Invoices
   getInvoices:             { module: 'Invoices', permission: 'canView' },
   generateInvoice:         { module: 'Invoices', permission: 'canAdd' },
@@ -235,7 +237,9 @@ const ACTION_PERMISSIONS = {
   resetPassword:           { module: 'UserManagement', permission: 'canEdit' },
   deleteUser:              { module: 'UserManagement', permission: 'canDelete' },
   // Auth
-  logout:                  null
+  logout:                  null,
+  // Activity Logs
+  getActivityLogs:         { module: 'UserManagement', permission: 'canView' }
 };
 
 // ============================================
@@ -656,6 +660,8 @@ function routeAction(action, payload, sessionUser) {
       return handleGetSalaryLedger(payload, sessionUser);
     case 'generateSalary':
       return handleGenerateSalary(payload, sessionUser);
+    case 'getEmployeePayrollSummary':
+      return handleGetEmployeePayrollSummary(payload, sessionUser);
 
     // ── Invoices ──────────────────────────────────────
     // CONTRACT: Invoices/{canView,canAdd,canEdit,canDelete} — see AUTH_CONTRACT.md §3
@@ -725,6 +731,10 @@ function routeAction(action, payload, sessionUser) {
       return handleResetPassword(payload, sessionUser);
     case 'deleteUser':
       return handleDeleteUser(payload, sessionUser);
+
+    // ── Activity Logs ─────────────────────────────────
+    case 'getActivityLogs':
+      return handleGetActivityLogs(payload, sessionUser);
 
     default:
       return {

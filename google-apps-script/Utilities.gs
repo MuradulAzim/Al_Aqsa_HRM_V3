@@ -52,7 +52,7 @@ function setupDatabase() {
   createSheet(ss, SHEETS.CLIENTS, ['id', 'companyName', 'contactPerson', 'phone', 'email', 'address', 'status', 'name', 'contactRate', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'createdAt']);
   createSheet(ss, SHEETS.GUARD_DUTY, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'status', 'checkIn', 'checkOut', 'notes']);
   createSheet(ss, SHEETS.ESCORT_DUTY, ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes']);
-  createSheet(ss, SHEETS.DAY_LABOR, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes']);
+  createSheet(ss, SHEETS.DAY_LABOR, ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'hoursWorked', 'rate', 'amount', 'notes']);
   createSheet(ss, SHEETS.LOAN_ADVANCE, ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'paymentMethod', 'remarks', 'repaymentType', 'monthlyDeduct', 'status', 'createdAt']);
   createSheet(ss, SHEETS.SALARY_LEDGER, ['id', 'employeeId', 'employeeName', 'sourceModule', 'sourceId', 'date', 'shiftOrHours', 'earnedAmount', 'deductedAmount', 'netChange', 'runningBalance', 'month', 'createdAt']);
   createSheet(ss, SHEETS.PROCESSED_EVENTS, ['eventKey', 'processedAt']);
@@ -62,6 +62,7 @@ function setupDatabase() {
   createSheet(ss, SHEETS.JOB_APPLICATIONS, ['id', 'jobId', 'applicantName', 'phone', 'email', 'experience', 'education', 'skills', 'resumeUrl', 'status', 'appliedAt', 'notes']);
   createSheet(ss, SHEETS.PERMISSIONS, ['role', 'module', 'canView', 'canAdd', 'canEdit', 'canDelete']);
   createSheet(ss, SHEETS.SESSIONS, ['sessionId', 'userId', 'role', 'expiresAt', 'createdAt']);
+  createSheet(ss, SHEETS.ACTIVITY_LOGS, ['id', 'timestamp', 'userId', 'userName', 'role', 'action', 'module', 'recordId', 'summary', 'date', 'employeeId', 'clientId', 'success', 'message', 'payloadHash']);
   
   // Remove default Sheet1
   const defaultSheet = ss.getSheetByName('Sheet1');
@@ -120,8 +121,9 @@ function migrateDatabase() {
     [SHEETS.CLIENTS]:          ['id', 'companyName', 'contactPerson', 'phone', 'email', 'address', 'status', 'name', 'contactRate', 'serviceStartDate', 'lastBillSubmitted', 'billStatus', 'dueAmount', 'assignedEmployeeSalary', 'createdAt'],
     [SHEETS.GUARD_DUTY]:       ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'status', 'checkIn', 'checkOut', 'notes'],
     [SHEETS.ESCORT_DUTY]:      ['id', 'employeeId', 'employeeName', 'clientId', 'clientName', 'vesselName', 'lighterName', 'startDate', 'startShift', 'endDate', 'endShift', 'releasePoint', 'totalDays', 'conveyance', 'status', 'notes'],
-    [SHEETS.DAY_LABOR]:        ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'hoursWorked', 'rate', 'amount', 'notes'],
-    [SHEETS.LOAN_ADVANCE]:     ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'paymentMethod', 'remarks', 'repaymentType', 'monthlyDeduct', 'status', 'createdAt']
+    [SHEETS.DAY_LABOR]:        ['id', 'date', 'employeeId', 'employeeName', 'clientId', 'clientName', 'shift', 'hoursWorked', 'rate', 'amount', 'notes'],
+    [SHEETS.LOAN_ADVANCE]:     ['id', 'employeeId', 'employeeName', 'type', 'amount', 'issueDate', 'paymentMethod', 'remarks', 'repaymentType', 'monthlyDeduct', 'status', 'createdAt'],
+    [SHEETS.ACTIVITY_LOGS]:    ['id', 'timestamp', 'userId', 'userName', 'role', 'action', 'module', 'recordId', 'summary', 'date', 'employeeId', 'clientId', 'success', 'message', 'payloadHash']
   };
 
   const results = [];
@@ -609,4 +611,214 @@ function sanitizedError(action, error) {
     error: 'SERVER_ERROR',
     message: 'An unexpected error occurred. Please try again.'
   };
+}
+
+// ============================================
+// CROSS-DUTY CONFLICT VALIDATION
+// ============================================
+
+/**
+ * Check if an employee has a date/shift conflict across all three duty types.
+ * Forward-only: called on add/update, does not touch historic data.
+ *
+ * Rules:
+ *  - Guard Duty: 1 employee → max 1 guard shift per date+shift
+ *  - Escort Duty: exclusive — blocks BOTH shifts for every date in [startDate, endDate]
+ *  - Day Labor:  per-shift — only blocks the same shift on the same date
+ *  - An employee on active escort cannot be assigned guard or day-labor for overlapping dates
+ *
+ * @param {Object}  opts
+ * @param {string}  opts.employeeId    - employee to check
+ * @param {string[]}opts.dates         - array of YYYY-MM-DD dates to check
+ * @param {string[]}[opts.shifts]      - shifts to check (['Day'], ['Night'], or ['Day','Night'] for full-day block)
+ * @param {string}  opts.sourceModule  - 'GuardDuty' | 'EscortDuty' | 'DayLabor'
+ * @param {string}  [opts.excludeId]   - record ID to exclude (for edits)
+ * @returns {Object} { conflict: boolean, message: string }
+ */
+function validateEmployeeDutyConflict(opts) {
+  var empId = String(opts.employeeId);
+  var dates = opts.dates || [];
+  var shifts = opts.shifts || ['Day', 'Night'];
+  var sourceModule = opts.sourceModule;
+  var excludeId = opts.excludeId || '';
+
+  // Build a dateSet for fast lookup
+  var dateSet = {};
+  dates.forEach(function(d) { dateSet[d] = true; });
+
+  // --- Check Guard Duty conflicts ---
+  var guardData = getSheetData(SHEETS.GUARD_DUTY);
+  for (var i = 0; i < guardData.length; i++) {
+    var g = guardData[i];
+    if (String(g.employeeId) !== empId) continue;
+    if (excludeId && String(g.id) === excludeId) continue;
+    var gDate = normalizeDateValue(g.date);
+    if (!dateSet[gDate]) continue;
+    if (sourceModule === 'GuardDuty') {
+      // Conflict only on same shift
+      if (shifts.indexOf(g.shift) >= 0) {
+        return { conflict: true, message: 'Employee already has a Guard Duty record on ' + gDate + ' (' + g.shift + ' shift)' };
+      }
+    } else if (sourceModule === 'DayLabor') {
+      // Day Labor now per-shift — conflict only on same shift
+      if (shifts.indexOf(g.shift) >= 0) {
+        return { conflict: true, message: 'Employee has Guard Duty on ' + gDate + ' (' + g.shift + ') — conflicts with Day Labor' };
+      }
+    } else {
+      // Escort blocks both shifts — any guard record on that date is a conflict
+      return { conflict: true, message: 'Employee has Guard Duty on ' + gDate + ' (' + g.shift + ') — conflicts with ' + sourceModule };
+    }
+  }
+
+  // --- Check Escort Duty conflicts (date-range overlap, shift-agnostic, endDate inclusive) ---
+  var escortData = getSheetData(SHEETS.ESCORT_DUTY);
+  for (var j = 0; j < escortData.length; j++) {
+    var e = escortData[j];
+    if (String(e.employeeId) !== empId) continue;
+    if (excludeId && String(e.id) === excludeId) continue;
+    if (String(e.status || '').toLowerCase() !== 'active') continue;
+    var eStart = normalizeDateValue(e.startDate);
+    var eEnd = e.endDate ? normalizeDateValue(e.endDate) : '9999-12-31';
+    for (var k = 0; k < dates.length; k++) {
+      if (dates[k] >= eStart && dates[k] <= eEnd) {
+        return { conflict: true, message: 'Employee is on Escort Duty (' + eStart + ' – ' + (e.endDate ? eEnd : 'ongoing') + ') — conflicts with ' + sourceModule + ' on ' + dates[k] };
+      }
+    }
+  }
+
+  // --- Check Day Labor conflicts (per-shift) ---
+  var laborData = getSheetData(SHEETS.DAY_LABOR);
+  for (var m = 0; m < laborData.length; m++) {
+    var dl = laborData[m];
+    if (String(dl.employeeId) !== empId) continue;
+    if (excludeId && String(dl.id) === excludeId) continue;
+    var dlDate = normalizeDateValue(dl.date);
+    if (!dateSet[dlDate]) continue;
+    var dlShift = dl.shift || 'Day';
+    if (sourceModule === 'DayLabor') {
+      // Day Labor + Day Labor: conflict only on same date + same shift
+      if (shifts.indexOf(dlShift) >= 0) {
+        return { conflict: true, message: 'Employee already has a Day Labor record on ' + dlDate + ' (' + dlShift + ' shift)' };
+      }
+    } else if (sourceModule === 'GuardDuty') {
+      // Guard + Day Labor: conflict only on same shift
+      if (shifts.indexOf(dlShift) >= 0) {
+        return { conflict: true, message: 'Employee has Day Labor on ' + dlDate + ' (' + dlShift + ') — conflicts with Guard Duty' };
+      }
+    } else {
+      // Escort blocks both shifts — any day labor on that date is a conflict
+      return { conflict: true, message: 'Employee has Day Labor on ' + dlDate + ' — conflicts with ' + sourceModule };
+    }
+  }
+
+  return { conflict: false, message: '' };
+}
+
+/**
+ * Expand a date range into an array of YYYY-MM-DD strings (inclusive).
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate   - YYYY-MM-DD (if falsy, returns [startDate])
+ * @returns {string[]}
+ */
+function expandDateRange(startDate, endDate) {
+  if (!endDate) return [startDate];
+  var result = [];
+  var current = new Date(startDate + 'T00:00:00');
+  var end = new Date(endDate + 'T00:00:00');
+  while (current <= end) {
+    var y = current.getFullYear();
+    var mm = String(current.getMonth() + 1).padStart(2, '0');
+    var dd = String(current.getDate()).padStart(2, '0');
+    result.push(y + '-' + mm + '-' + dd);
+    current.setDate(current.getDate() + 1);
+  }
+  return result;
+}
+
+// ============================================
+// ACTIVITY LOGGING
+// ============================================
+
+/**
+ * Log an activity to the ACTIVITY_LOGS sheet.
+ * Fire-and-forget — errors are swallowed so they never break the calling handler.
+ *
+ * Stores minimal metadata only — NO raw payload.
+ *
+ * @param {Object} opts
+ * @param {Object} opts.sessionUser - { userId, username, role }
+ * @param {string} opts.action      - e.g. 'addGuardDuty', 'deleteEmployee'
+ * @param {string} opts.module      - e.g. 'GuardDuty', 'Employees'
+ * @param {string} [opts.recordId]  - primary key of affected record
+ * @param {string} [opts.summary]   - human-readable one-liner
+ * @param {string} [opts.date]      - relevant date (YYYY-MM-DD)
+ * @param {string} [opts.employeeId] - affected employee ID
+ * @param {string} [opts.clientId]  - affected client ID
+ * @param {boolean}[opts.success]   - true if action succeeded (default true)
+ * @param {string} [opts.message]   - optional status or error message
+ * @param {Object} [opts.payload]   - if provided, SHA-256 hash is stored (NOT the payload itself)
+ */
+function logActivity(opts) {
+  try {
+    var user = opts.sessionUser || {};
+    var payloadHash = '';
+    if (opts.payload) {
+      try {
+        var raw = typeof opts.payload === 'string' ? opts.payload : JSON.stringify(opts.payload);
+        var hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw);
+        payloadHash = hash.map(function(b) { return ('0' + ((b < 0 ? b + 256 : b)).toString(16)).slice(-2); }).join('');
+      } catch (hashErr) {
+        payloadHash = 'hash-error';
+      }
+    }
+    var record = {
+      id:          generateId('LOG'),
+      timestamp:   getNowISO(),
+      userId:      user.userId  || user.username || '',
+      userName:    user.username || '',
+      role:        user.role     || '',
+      action:      opts.action   || '',
+      module:      opts.module   || '',
+      recordId:    opts.recordId || '',
+      summary:     opts.summary  || '',
+      date:        opts.date     || '',
+      employeeId:  opts.employeeId || '',
+      clientId:    opts.clientId || '',
+      success:     opts.success !== undefined ? String(opts.success) : 'true',
+      message:     opts.message  || '',
+      payloadHash: payloadHash
+    };
+    addRecord(SHEETS.ACTIVITY_LOGS, record);
+  } catch (e) {
+    Logger.log('logActivity error (swallowed): ' + e.toString());
+  }
+}
+
+/**
+ * Retrieve activity logs. Supports optional filters: module, userId, limit.
+ */
+function handleGetActivityLogs(payload, sessionUser) {
+  if (!checkPermission(sessionUser.role, 'UserManagement', 'canView')) {
+    return unauthorizedResponse('getActivityLogs');
+  }
+  try {
+    var records = getSheetData(SHEETS.ACTIVITY_LOGS);
+    // Filter by module
+    if (payload.module) {
+      var mod = String(payload.module).toLowerCase();
+      records = records.filter(function(r) { return (r.module || '').toLowerCase() === mod; });
+    }
+    // Filter by userId
+    if (payload.userId) {
+      records = records.filter(function(r) { return r.userId === payload.userId; });
+    }
+    // Sort newest first
+    records.sort(function(a, b) { return (b.timestamp || '').localeCompare(a.timestamp || ''); });
+    // Limit
+    var limit = Number(payload.limit) || 200;
+    records = records.slice(0, limit);
+    return { success: true, action: 'getActivityLogs', data: records, message: 'Activity logs retrieved' };
+  } catch (error) {
+    return sanitizedError('getActivityLogs', error);
+  }
 }

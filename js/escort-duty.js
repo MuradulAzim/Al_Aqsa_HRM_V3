@@ -15,6 +15,7 @@ let currentRange = {
 // ============================================
 let escortPaginationState = createPaginationState(10);
 let escortFilteredData = [];
+let escortViewMode = 'flat'; // 'flat' | 'grouped'
 
 // ============================================
 // REFRESH FUNCTION (EXPLICIT ONLY)
@@ -65,7 +66,11 @@ async function refreshEscortDuty(dateRange) {
 function renderEscortTable(data) {
     escortFilteredData = data || [];
     escortPaginationState.currentPage = 1;
-    renderPaginatedEscortTable();
+    if (escortViewMode === 'grouped') {
+        renderGroupedEscortTable();
+    } else {
+        renderPaginatedEscortTable();
+    }
 }
 
 /**
@@ -136,6 +141,79 @@ function renderPaginatedEscortTable() {
             renderPaginatedEscortTable();
         }
     });
+}
+
+/**
+ * Render grouped escort records table (two-level: Client -> Vessel)
+ */
+function renderGroupedEscortTable() {
+    renderTwoLevelGroupedTable({
+        tbodyId: 'escortTableBody',
+        paginationId: 'escortPagination',
+        data: escortFilteredData,
+        l1KeyFn: (r) => normalizeGroupKey(r.clientName || r.clientId),
+        l2KeyFn: (r) => normalizeGroupKey(r.vesselName) === 'General' ? 'Unknown Vessel' : normalizeGroupKey(r.vesselName),
+        colSpan: 11,
+        emptyMessage: 'No escort records found for this date range.',
+        renderRowFn: (record) => {
+            const isOngoing = !record.endDate;
+            return `
+            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(record.employeeName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.clientName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.vesselName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.lighterName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.startDate || '')} ${escapeHtml(record.startShift || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${isOngoing ? '<span class="text-blue-600 font-medium">Ongoing</span>' : escapeHtml(record.endDate || '') + ' ' + escapeHtml(record.endShift || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-800 font-medium">${isOngoing ? '-' : (record.totalDays || 0)}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${record.conveyance || 0}</td>
+            <td class="px-4 py-3 text-sm">
+                <span class="px-2 py-1 rounded-full text-xs ${(record.status || '').toLowerCase() === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                    ${escapeHtml(record.status || '')}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-sm space-x-1">
+                <button onclick="viewEscortRecord('${record.id}')" class="text-blue-600 hover:text-blue-800">View</button>
+                <button onclick="editEscortRecord('${record.id}')" class="text-green-600 hover:text-green-800">Edit</button>
+                <button onclick="deleteRecord('${record.id}')" class="text-red-600 hover:text-red-800">Delete</button>
+            </td>`;
+        },
+        l1SummaryFn: (key, items) => {
+            const total = items.length;
+            const totalDays = items.reduce((s, r) => r.endDate ? s + (Number(r.totalDays) || 0) : s, 0);
+            const active = items.filter(r => (r.status || '').toLowerCase() === 'active').length;
+            const conv = items.reduce((s, r) => s + (Number(r.conveyance) || 0), 0);
+            return `${total} rec | ${totalDays} days | ${active} active | Conv: ${conv}`;
+        },
+        l2SummaryFn: (key, items) => {
+            const totalDays = items.reduce((s, r) => r.endDate ? s + (Number(r.totalDays) || 0) : s, 0);
+            const ongoing = items.filter(r => !r.endDate).length;
+            return `${totalDays} days` + (ongoing ? ` | ${ongoing} ongoing` : '');
+        }
+    });
+}
+
+/**
+ * Toggle escort view mode between flat and grouped
+ * @param {string} mode - 'flat' or 'grouped'
+ */
+function setEscortViewMode(mode) {
+    escortViewMode = mode;
+    const flatBtn = document.getElementById('escortFlatBtn');
+    const groupedBtn = document.getElementById('escortGroupedBtn');
+    const expandBtn = document.getElementById('escortExpandAllBtn');
+    const collapseBtn = document.getElementById('escortCollapseAllBtn');
+    if (mode === 'grouped') {
+        if (flatBtn) { flatBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors'; }
+        if (groupedBtn) { groupedBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white transition-colors'; }
+        if (expandBtn) expandBtn.classList.remove('hidden');
+        if (collapseBtn) collapseBtn.classList.remove('hidden');
+    } else {
+        if (flatBtn) { flatBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white transition-colors'; }
+        if (groupedBtn) { groupedBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors'; }
+        if (expandBtn) expandBtn.classList.add('hidden');
+        if (collapseBtn) collapseBtn.classList.add('hidden');
+    }
+    renderEscortTable(escortFilteredData);
 }
 
 /**

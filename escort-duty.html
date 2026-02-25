@@ -74,7 +74,14 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex justify-end">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-600">View:</span>
+                <button id="escortFlatBtn" onclick="setEscortViewMode('flat')" class="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white transition-colors">Flat</button>
+                <button id="escortGroupedBtn" onclick="setEscortViewMode('grouped')" class="px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">Grouped</button>
+                <button id="escortExpandAllBtn" onclick="toggleAllGroups('escortTableBody', true)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors hidden">Expand All</button>
+                <button id="escortCollapseAllBtn" onclick="toggleAllGroups('escortTableBody', false)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors hidden">Collapse All</button>
+            </div>
             <button onclick="openAddEscortModal()" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors">
                 + Add Escort
             </button>
@@ -245,6 +252,7 @@
     <script src="js/auth.js"></script>
     <script src="js/ux-utils.js"></script>
     <script src="js/pagination-utils.js"></script>
+    <script src="js/group-utils.js"></script>
     <script src="js/employee-lookup.js"></script>
     <script src="js/client-lookup.js"></script>
     <script src="js/escort-duty.js"></script>

@@ -12,6 +12,7 @@ let currentDate = getTodayISO();
 // ============================================
 let laborPaginationState = createPaginationState(10);
 let laborFilteredData = [];
+let laborViewMode = 'flat'; // 'flat' | 'grouped'
 
 // ============================================
 // REFRESH FUNCTION (EXPLICIT ONLY)
@@ -25,7 +26,7 @@ let laborFilteredData = [];
 async function refreshDayLabor(date) {
     // Show loading state
     if (typeof showTableLoading === 'function') {
-        showTableLoading('laborTableBody', 9);
+        showTableLoading('laborTableBody', 10);
     }
     
     try {
@@ -62,7 +63,11 @@ async function refreshDayLabor(date) {
 function renderLaborTable(data) {
     laborFilteredData = data || [];
     laborPaginationState.currentPage = 1;
-    renderPaginatedLaborTable();
+    if (laborViewMode === 'grouped') {
+        renderGroupedLaborTable();
+    } else {
+        renderPaginatedLaborTable();
+    }
 }
 
 /**
@@ -74,11 +79,11 @@ function renderPaginatedLaborTable() {
 
     if (!laborFilteredData || laborFilteredData.length === 0) {
         if (typeof showEmptyState === 'function') {
-            showEmptyState('laborTableBody', 'No labor records found for this date. Add a record using the button above.', 9, 'fa-hard-hat');
+            showEmptyState('laborTableBody', 'No labor records found for this date. Add a record using the button above.', 10, 'fa-hard-hat');
         } else {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                    <td colspan="10" class="px-4 py-8 text-center text-gray-500">
                         No labor records found for this date
                     </td>
                 </tr>
@@ -99,6 +104,7 @@ function renderPaginatedLaborTable() {
             <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(record.employeeName || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.clientName || '')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.date || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.shift || 'Day')}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${record.hoursWorked || 0}</td>
             <td class="px-4 py-3 text-sm text-gray-600">${record.rate || 0}</td>
             <td class="px-4 py-3 text-sm text-gray-800 font-medium">${record.amount || 0}</td>
@@ -124,6 +130,64 @@ function renderPaginatedLaborTable() {
             renderPaginatedLaborTable();
         }
     });
+}
+
+/**
+ * Render grouped labor records table (grouped by clientName → notes)
+ */
+function renderGroupedLaborTable() {
+    renderGroupedTable({
+        tbodyId: 'laborTableBody',
+        paginationId: 'laborPagination',
+        data: laborFilteredData,
+        groupKeyFn: (r) => normalizeGroupKey(r.clientName) + ' › ' + normalizeGroupKey(r.notes),
+        colSpan: 10,
+        emptyMessage: 'No labor records found for this date.',
+        renderRowFn: (record) => {
+            return `
+            <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(record.employeeName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.clientName || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.date || '')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.shift || 'Day')}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${record.hoursWorked || 0}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${record.rate || 0}</td>
+            <td class="px-4 py-3 text-sm text-gray-800 font-medium">${record.amount || 0}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(record.notes || '-')}</td>
+            <td class="px-4 py-3 text-sm">
+                <button onclick="deleteRecord('${record.id}')" class="text-red-600 hover:text-red-800">Delete</button>
+            </td>`;
+        },
+        groupSummaryFn: (key, items) => {
+            const total = items.length;
+            const hours = items.reduce((s, r) => s + (Number(r.hoursWorked) || 0), 0);
+            const amount = items.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+            return `${total} records · ${hours} hrs · ৳${amount}`;
+        }
+    });
+}
+
+/**
+ * Toggle labor view mode between flat and grouped
+ * @param {string} mode - 'flat' or 'grouped'
+ */
+function setLaborViewMode(mode) {
+    laborViewMode = mode;
+    const flatBtn = document.getElementById('laborFlatBtn');
+    const groupedBtn = document.getElementById('laborGroupedBtn');
+    const expandBtn = document.getElementById('laborExpandAllBtn');
+    const collapseBtn = document.getElementById('laborCollapseAllBtn');
+    if (mode === 'grouped') {
+        if (flatBtn) { flatBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors'; }
+        if (groupedBtn) { groupedBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white transition-colors'; }
+        if (expandBtn) expandBtn.classList.remove('hidden');
+        if (collapseBtn) collapseBtn.classList.remove('hidden');
+    } else {
+        if (flatBtn) { flatBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white transition-colors'; }
+        if (groupedBtn) { groupedBtn.className = 'px-3 py-1.5 text-xs rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors'; }
+        if (expandBtn) expandBtn.classList.add('hidden');
+        if (collapseBtn) collapseBtn.classList.add('hidden');
+    }
+    renderLaborTable(laborFilteredData);
 }
 
 /**
@@ -305,6 +369,7 @@ async function handleSubmit(event) {
         clientId: clientId,
         clientName: clientDisplayName.trim(),
         date: String(form.date.value).trim(),
+        shift: String(form.shift.value || 'Day').trim(),
         hoursWorked: hoursWorked,
         rate: rate,
         amount: amount,

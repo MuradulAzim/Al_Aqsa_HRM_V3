@@ -77,6 +77,18 @@ function handleAddGuardDuty(payload, sessionUser) {
       };
     }
     
+    // Cross-duty conflict validation (forward-only)
+    var conflictCheck = validateEmployeeDutyConflict({
+      employeeId: String(payload.employeeId).trim(),
+      dates: [dateStr],
+      shifts: [payload.shift || 'Day'],
+      sourceModule: 'GuardDuty'
+    });
+    if (conflictCheck.conflict) {
+      logActivity({ sessionUser: sessionUser, action: 'VALIDATION_REJECTED', module: 'GuardDuty', recordId: payload.id, summary: 'Conflict: ' + conflictCheck.message, date: dateStr, employeeId: String(payload.employeeId).trim(), clientId: String(payload.clientId || '').trim(), success: false, message: conflictCheck.message });
+      return { success: false, action: 'addGuardDuty', data: null, message: conflictCheck.message };
+    }
+
     // Prepare record data (v3 schema — aligned with frontend and sheet headers)
     var recordData = {
       id: payload.id,
@@ -95,6 +107,9 @@ function handleAddGuardDuty(payload, sessionUser) {
     // Add record
     addRecord(SHEETS.GUARD_DUTY, recordData);
     
+    // Activity logging
+    logActivity({ sessionUser: sessionUser, action: 'addGuardDuty', module: 'GuardDuty', recordId: recordData.id, summary: recordData.employeeName + ' guard duty ' + dateStr + ' ' + recordData.shift, date: dateStr, employeeId: recordData.employeeId, clientId: recordData.clientId, success: true });
+
     return {
       success: true,
       action: 'addGuardDuty',
@@ -127,6 +142,10 @@ function handleDeleteGuardDuty(payload, sessionUser) {
 
     const deleted = deleteRecord(SHEETS.GUARD_DUTY, payload.id);
     
+    if (deleted) {
+      logActivity({ sessionUser: sessionUser, action: 'deleteGuardDuty', module: 'GuardDuty', recordId: payload.id, summary: 'Deleted guard duty ' + payload.id });
+    }
+
     if (!deleted) {
       return {
         success: false,
